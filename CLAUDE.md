@@ -144,7 +144,11 @@ An expired session returns HTML or 401, so the client logs in again once. `succe
   - Status codes aren't documented, so the status text is described from the power flows ("Solar, charging from grid").
 - **Finding it:**
   - By MAC in the ARP table (`/proc/net/arp` on Linux; `arp -a(n)` on Mac/Windows).
-  - If the MAC isn't there, it sweeps the /24 on port 8000 (which also fills the ARP table) and looks again.
+  - If the MAC isn't there, it sweeps the local network on port 8000 (which also fills the ARP table) and looks again.
+    It sweeps the network's **real size**, read from `/proc/net/route` on Linux and `ifconfig` on Mac, capped at /20.
+    The owner's eero network is a **/22** (192.168.4.0-192.168.7.255): the YunoHost server mor1 is at 192.168.6.237 and the dongle at 192.168.4.26,
+    so a /24 sweep never found it (fixed 2026-10-10). A full /22 sweep takes about 5 s.
+  - Set up by IP (typing the address in the MAC box), the MAC is learned from the ARP table after the first reading.
   - If it's still missing, each open port is asked for its dongle serial (`identify()`).
   - Every frame's dongle serial is checked, so a reused IP is refused.
   - Quirk: Homebrew's Python on the Mac got an **empty** ARP table from `arp` (Apple's python3 got the full table), so the serial fallback matters there.

@@ -188,9 +188,16 @@ async def read_local(now):
             log.warning("Wi-Fi dongle: %s%s", e, "; using EG4 Monitor until it's back" if cloud_ok() else "")
         S.local_error, S.local_failed_at = str(e), now
         return False
+    if S.dongle is not d:   # the dongle was changed or turned off while this reading ran: drop it, save nothing
+        return False
     if S.local_error or S.source == "cloud":
         log.info("Wi-Fi dongle back at %s", d.ip)
     S.local_error, S.local_failed_at = None, 0
+    if not d.mac:   # set up by address: learn the MAC once the ARP table has it, so a new address is found by MAC too
+        d.mac = local.mac_for_ip(d.ip)
+        if d.mac:
+            S.settings["dongle_mac"] = d.mac
+            save_json(SETTINGS, S.settings, private=True)
     if (d.ip, d.dongle_sn) != (S.settings.get("dongle_ip"), S.settings.get("dongle_serial")):   # a new address (or first contact)
         S.settings.update(dongle_ip=d.ip, dongle_serial=d.dongle_sn)
         save_json(SETTINGS, S.settings, private=True)

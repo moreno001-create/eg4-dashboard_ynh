@@ -166,15 +166,51 @@ def mac_for_ip(ip):
     return next((m for m, i in arp_table().items() if i == ip), "")
 
 
+MIN_PREFIX = 20   # never sweep more than a /20 (4,094 addresses), whatever the network's size
+
+
+def _prefix_linux(me):
+    """The prefix length of the local network that holds `me`, from the kernel's routing table (/proc/net/route)."""
+    best = None
+    with open("/proc/net/route") as f:
+        for line in f.read().splitlines()[1:]:
+            cols = line.split()
+            if len(cols) < 8:
+                continue
+            dest, mask = int(cols[1], 16), int(cols[7], 16)   # printed as host-order (little-endian) numbers
+            if mask and (struct.unpack("<I", socket.inet_aton(me))[0] & mask) == dest:
+                bits = bin(mask).count("1")
+                best = max(best or 0, bits)
+    return best
+
+
+def _prefix_ifconfig(me):
+    """The same from `ifconfig` (macOS/BSD): 'inet 192.168.4.56 netmask 0xfffffc00'."""
+    out = subprocess.run(["ifconfig"], capture_output=True, text=True, timeout=10).stdout
+    m = re.search(rf"inet {re.escape(me)} netmask (0x[0-9a-fA-F]+)", out)
+    return bin(int(m.group(1), 16)).count("1") if m else None
+
+
 def local_networks():
-    """The /24 around this computer's own address (no packets are sent to find it)."""
+    """The local network around this computer's own address, at its real size (a home network can be bigger than a /24:
+    the owner's eero hands out 192.168.4.0-192.168.7.255, so the server at .6.237 must sweep the whole /22 to reach the
+    dongle at .4.26). No packets are sent to find it."""
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect(("192.0.2.1", 9))   # documentation address; UDP connect only picks the outgoing interface
             me = s.getsockname()[0]
     except OSError:
         return []
-    return [ipaddress.ip_network(f"{me}/24", strict=False)]
+    prefix = None
+    for find in (_prefix_linux, _prefix_ifconfig):
+        try:
+            prefix = find(me)
+        except (OSError, ValueError, subprocess.SubprocessError, struct.error):
+            prefix = None
+        if prefix:
+            break
+    prefix = max(MIN_PREFIX, min(prefix or 24, 30))
+    return [ipaddress.ip_network(f"{me}/{prefix}", strict=False)]
 
 
 async def _port_open(ip, port, timeout):
@@ -190,7 +226,7 @@ async def _port_open(ip, port, timeout):
     return True
 
 
-async def sweep(networks, port=None, timeout=0.8, limit=64):
+async def sweep(networks, port=None, timeout=0.8, limit=128):
     """Addresses on these networks with `port` open. Touching every address also fills the ARP table."""
     gate = asyncio.Semaphore(limit)
 

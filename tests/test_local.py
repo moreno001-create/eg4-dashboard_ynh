@@ -37,6 +37,17 @@ results.append(ok("regs" not in local.parse_frame(bytes(bad)), "a frame with a b
 results.append(ok(local.norm_mac("F0-9E-9E-C9-F8-68") == local.norm_mac("f0:9e:9e:c9:f8:68") == local.norm_mac("f0:9e:9e:c9:f8:68".replace("08", "8")) == MAC
                   and local.norm_mac("f0:9e:9e:c9:f8") == "", "MAC addresses in Windows, Linux and macOS styles match"))
 
+# the network to sweep is its real size: the owner's eero network is a /22, the server at .6.237 and the dongle at .4.26
+import builtins, io, ipaddress
+ROUTES = "Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\n" \
+         "eth0\t00000000\t0104A8C0\t0003\t0\t0\t100\t00000000\neth0\t0004A8C0\t00000000\t0001\t0\t0\t100\t00FCFFFF\n"
+_open = builtins.open
+builtins.open = lambda p, *a, **k: io.StringIO(ROUTES) if p == "/proc/net/route" else _open(p, *a, **k)
+pfx = local._prefix_linux("192.168.6.237")
+builtins.open = _open
+results.append(ok(pfx == 22 and ipaddress.ip_address("192.168.4.26") in ipaddress.ip_network(f"192.168.6.237/{pfx}", strict=False),
+                  "the sweep covers the whole /22 network, so a server at .6.237 finds a dongle at .4.26"))
+
 # --- 2. units, from the real registers
 L, E, B = local.norm_live(REGS), local.norm_energy(REGS), local.norm_bank(REGS)
 results.append(ok((L["soc"], L["v_bat"], L["pv"], L["charge"], L["grid"], L["load"], L["v_ac"], L["hz"]) == (48, 53.3, 260, 5403, 6976, 1592, 240.3, 59.97),
