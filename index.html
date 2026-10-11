@@ -1,0 +1,1296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Solar</title>
+<script>try{const t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
+<style>
+/* Styled after the owner's Voltline iPad/iPhone app: black background, rounded dark cards, big numbers, tinted icons.
+   Colors are tokens; dark is Voltline's own look, light is its iOS light-mode counterpart. */
+:root{color-scheme:light;
+--bg:#f2f2f7;--card:#ffffff;--card2:#f2f2f7;--ink:#000;--dim:#6e6e73;--dim2:#aeaeb2;--line:#e5e5ea;--glass:rgba(255,255,255,.72);--pill:rgba(120,120,128,.14);
+--solar:#c98a00;--pv2:#e0610e;--home:#2f6fe0;--bat:#1f9d4a;--gridIn:#0891b2;--gridOut:#d1366b;--life:#7c5cd6;
+--ok:#1f9d4a;--bad:#e5342b;--warn:#e07a00;--orange:#ff8a1f;--r:28px}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){color-scheme:dark;
+--bg:#000;--card:#1c1c1e;--card2:#2c2c2e;--ink:#fff;--dim:#8e8e93;--dim2:#48484a;--line:#2c2c2e;--glass:rgba(28,28,30,.72);--pill:rgba(118,118,128,.24);
+--solar:#ffc22e;--pv2:#ff8a3d;--home:#4c8dff;--bat:#30d158;--gridIn:#22c3e6;--gridOut:#e0457b;--life:#a78bfa;--ok:#30d158;--bad:#ff453a;--warn:#ff9f0a}}
+:root[data-theme=dark]{color-scheme:dark;
+--bg:#000;--card:#1c1c1e;--card2:#2c2c2e;--ink:#fff;--dim:#8e8e93;--dim2:#48484a;--line:#2c2c2e;--glass:rgba(28,28,30,.72);--pill:rgba(118,118,128,.24);
+--solar:#ffc22e;--pv2:#ff8a3d;--home:#4c8dff;--bat:#30d158;--gridIn:#22c3e6;--gridOut:#e0457b;--life:#a78bfa;--ok:#30d158;--bad:#ff453a;--warn:#ff9f0a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--bg);-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);
+font:17px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.wrap{max-width:1880px;margin:0 auto;padding:0 clamp(16px,2vw,32px) 60px}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--home);outline-offset:2px}
+.hidden{display:none!important}
+/* top bar */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px clamp(16px,2vw,32px);margin:0 calc(-1 * clamp(16px,2vw,32px));transition:background .2s,border-color .2s;border-bottom:1px solid transparent}
+.topbar.scrolled{background:var(--glass);-webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6);border-bottom-color:var(--line)}
+.topbar .mini{position:absolute;left:50%;transform:translateX(-50%);font-weight:650;opacity:0;transition:opacity .2s;pointer-events:none}
+.topbar.scrolled .mini{opacity:1}
+.pill{background:var(--pill);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-radius:999px;height:44px;display:inline-flex;align-items:center}
+.pill.text{padding:0 18px}
+.pill .ib{width:52px;height:44px;display:inline-flex;align-items:center;justify-content:center}
+.pill .ib svg{width:23px;height:23px}
+h1{font-size:clamp(32px,1.6vw + 22px,44px);font-weight:750;letter-spacing:-.025em;margin:0}
+.titlerow{display:flex;align-items:center;gap:12px 20px;flex-wrap:wrap;margin:8px 0 16px}
+.chiprow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border-radius:999px;padding:6px 14px;font-size:15px;font-weight:600}
+.chip i{width:9px;height:9px;border-radius:50%;background:var(--ok)}.chip i.off{background:var(--bad)}.chip i.wait{background:var(--dim)}
+.updated{color:var(--dim);font-size:15px}
+.banner{border-radius:16px;padding:12px 16px;margin:10px 0;font-size:15px;background:color-mix(in srgb,var(--bad) 16%,var(--card))}
+.banner.warn{background:color-mix(in srgb,var(--warn) 16%,var(--card))}
+/* power flow */
+#flow{width:100%;height:auto;display:block;overflow:visible;max-width:620px;margin:0 auto}
+#flow .lab{font-size:22px;font-weight:600}
+#flow .val{font-size:42px;font-weight:700;letter-spacing:-.02em}
+#flow .unit{font-size:22px;font-weight:500;fill:var(--dim)}
+#flow .sub{font-size:20px;fill:var(--dim)}
+#flow .band{fill:none;stroke-linecap:round;opacity:.5}
+#flow .orb{filter:drop-shadow(0 0 4px rgba(255,255,255,.55)) drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+:root[data-theme=light] #flow .orb{filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))}
+@media(prefers-color-scheme:light){:root:not([data-theme=dark]) #flow .orb{filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))}}
+/* cards */
+/* masonry grid: JS sets --cols, each card's column span (its size) and row span (its height in 8 px rows) */
+#cards{--cols:1;--gap:clamp(14px,1.2vw,22px);display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));grid-auto-rows:8px;column-gap:var(--gap);row-gap:0;align-items:start}
+.card{background:var(--card);border-radius:var(--r);padding:clamp(16px,1.2vw,22px) clamp(18px,1.4vw,24px);margin:0;display:block;position:relative;min-width:0;align-self:start}
+.chead{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.chead h2{font-size:19px;font-weight:600;margin:0;flex:1}
+.ico{width:42px;height:42px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none;background:color-mix(in srgb,currentColor 20%,transparent)}
+.ico svg{width:22px;height:22px}
+.big{font-size:clamp(40px,1.4vw + 26px,52px);font-weight:700;letter-spacing:-.025em;line-height:1.05}
+.big small{font-size:22px;font-weight:500;color:var(--dim);margin-left:8px;letter-spacing:0}
+.mid{font-size:30px;font-weight:700;letter-spacing:-.02em}
+.mid small{font-size:15px;font-weight:500;color:var(--dim);margin-left:4px}
+.dim{color:var(--dim)}.small{font-size:15px}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.spread{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.bar{position:relative;height:12px;border-radius:99px;background:var(--card2);margin:18px 0 12px}
+.bar .fill{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:linear-gradient(90deg,#ff8a3d,#ffd23f 50%,#30d158);background-repeat:no-repeat;transition:width .5s}
+.bar .knob{position:absolute;top:50%;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:#fff;box-shadow:0 1px 4px #0006;transition:left .5s}
+.mini-bar{height:6px;border-radius:99px;background:var(--dim2);opacity:.6;margin:14px 0 10px;position:relative;overflow:hidden}
+.mini-bar span{position:absolute;inset:0 auto 0 0;border-radius:99px}
+.pvgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;container-type:inline-size}
+.pvt{min-width:0;border-radius:20px;padding:14px clamp(10px,4cqi,16px);border:1.5px solid color-mix(in srgb,currentColor 40%,transparent);background:color-mix(in srgb,currentColor 9%,transparent)}
+.pvt .hd{display:flex;justify-content:space-between;align-items:center;color:var(--ink);font-weight:650}
+.pvt .hd i{width:11px;height:11px;border-radius:50%;background:currentColor;display:inline-block;margin-right:8px}
+.pvt .num{font-size:clamp(28px,12cqi,40px);white-space:nowrap;font-weight:700;letter-spacing:-.02em;margin-top:6px}
+.pvt .num small{font-size:18px;color:var(--dim);font-weight:500;margin-left:6px}
+.kv2{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;color:var(--ink)}
+.kv2 span{color:var(--dim);font-size:15px}.kv2 b{font-size:21px;font-weight:600}
+.pvt .kv2{grid-template-columns:repeat(2,minmax(0,1fr))}.pvt .kv2 b{font-size:clamp(16px,6cqi,21px);white-space:nowrap}.kv2 b small{font-size:13px;color:var(--dim);font-weight:500;margin-left:3px}
+.kv3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 12px}
+.kv3 span{color:var(--dim);font-size:15px;display:block}.kv3 b{font-size:30px;font-weight:700;letter-spacing:-.02em}.kv3 b small{font-size:15px;color:var(--dim);font-weight:500;margin-left:4px}
+.life{display:grid;grid-template-columns:1fr 1fr;gap:16px 12px}
+.life span{color:var(--dim);font-size:16px;display:block}.life b{font-size:34px;font-weight:700;letter-spacing:-.02em}.life b small{font-size:16px;color:var(--dim);font-weight:500;margin-left:5px}
+.seg{display:flex;background:var(--card2);border-radius:14px;padding:3px;gap:2px;margin:4px 0 14px}
+.seg button{flex:1 1 auto;padding:9px 4px;border-radius:11px;font-size:clamp(14px,.4vw + 11px,16px);font-weight:500;white-space:nowrap;min-width:0}
+.seg button.on{background:var(--dim2);font-weight:600}
+:root[data-theme=light] .seg button.on{background:#fff;box-shadow:0 1px 3px #0002}
+@media(prefers-color-scheme:light){:root:not([data-theme=dark]) .seg button.on{background:#fff;box-shadow:0 1px 3px #0002}}
+.cta{width:100%;height:58px;border-radius:999px;background:var(--orange);color:#fff;font-size:20px;font-weight:650}
+.cta.stop{background:transparent;color:var(--bad);border:2px solid var(--bad)}
+.cta:disabled{opacity:.45}
+.status{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:600;margin:4px 0 12px}
+.status i{width:12px;height:12px;border-radius:50%;background:var(--dim)}.status i.on{background:var(--orange);box-shadow:0 0 0 4px color-mix(in srgb,var(--orange) 30%,transparent)}
+.note{color:var(--dim);font-size:15px;margin:12px 0 0}
+select.inline{background:var(--card2);border:0;border-radius:10px;padding:6px 10px}
+/* power flow picture (owner's house illustration) */
+.house{position:relative;container-type:inline-size;width:100%;max-width:min(100%, calc(58vh * 1312 / 860));margin:0 auto;border-radius:20px;overflow:hidden;line-height:1.15}
+.house img{display:block;width:100%;height:auto;transition:filter 2.5s}
+.house{isolation:isolate}
+.house .tint,.house .glow{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 2.5s,background 2.5s}
+.house .tint{mix-blend-mode:multiply}
+.house .glow{mix-blend-mode:screen}
+.house #houseSky{transition:opacity 2s}
+.house .star{animation:twinkle 3.2s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.25}50%{opacity:1}}
+.house .drift{animation:drift linear infinite}
+@keyframes drift{from{transform:translateX(-380px)}to{transform:translateX(1500px)}}
+.house .rain{animation:rain .55s linear infinite}
+@keyframes rain{from{transform:translate(0,-60px)}to{transform:translate(-18px,60px)}}
+@media(prefers-reduced-motion:reduce){.house .star,.house .drift,.house .rain{animation:none}}
+.skybadge{font-size:14px;font-weight:600;color:var(--dim);background:var(--card2);border-radius:999px;padding:5px 12px;white-space:nowrap}
+.house svg{position:absolute;inset:0;width:100%;height:100%}
+.house .wire{fill:none;stroke-width:7;stroke-linecap:round;stroke-linejoin:round;opacity:.6;filter:drop-shadow(0 0 6px currentColor)}
+.house .orb{filter:drop-shadow(0 0 6px rgba(255,255,255,.8))}
+/* labels: one layer of their own above the moving sky, kept on whole pixels (see snapHouse) so the text stays sharp */
+.hchips{position:absolute;inset:0;z-index:2;will-change:transform;pointer-events:none}
+.hchip{position:absolute;background:#0a2a66;border:2px solid rgba(190,215,255,.75);border-radius:1.1cqw;color:#fff;padding:.7cqw 1cqw;box-shadow:0 .4cqw 1.2cqw rgba(0,0,0,.35)}
+.hchip.bat{background:#3f1a78;border-color:rgba(214,190,255,.8)}
+.hchip .t{display:block;font-weight:700;font-size:clamp(11px,1.6cqw,22px)}
+.hchip .v{display:block;font-weight:750;font-size:clamp(14px,2.5cqw,34px);letter-spacing:-.02em;margin-top:.15cqw}
+.hchip .v small{font-size:.6em;font-weight:500;color:#cfdcff;margin-left:.3em}
+.hchip .s{display:block;font-size:clamp(10.5px,1.25cqw,16px);font-weight:500;color:#e3ebff;margin-top:.15cqw}
+.hchip.dim .v{opacity:.55}
+/* storm watch */
+.tgl{position:relative;display:inline-block;width:52px;height:32px;flex:none}
+.tgl input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer;z-index:1}
+.tgl span{position:absolute;inset:0;border-radius:99px;background:var(--dim2);transition:background .2s}
+.tgl span::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0005;transition:transform .2s}
+.tgl input:checked+span{background:var(--ok)}.tgl input:checked+span::after{transform:translateX(20px)}
+.tgl input:focus-visible+span{outline:2px solid var(--home);outline-offset:2px}
+.status i.watch{background:var(--warn)}.status i.ready{background:var(--ok)}
+.hz{display:flex;gap:10px;align-items:flex-start}.hz.soon b{color:var(--warn)}
+.swset summary{cursor:pointer;color:var(--dim);font-size:15px;margin-top:12px}
+.swset .field{margin:10px 0}
+.chk{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:15px}.chk input{width:20px;height:20px;accent-color:var(--ok)}
+.chk input[type=number]{width:70px;height:auto;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+/* weather */
+.locbtn{background:var(--card2);border-radius:999px;padding:6px 14px;font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap}
+.locform{display:flex;gap:8px;margin:-4px 0 14px}
+.locform input{flex:1;min-width:0;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.wxnow{display:flex;align-items:center;gap:16px}
+.wxicon svg{width:64px;height:64px;display:block}
+.wxdays{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.wxday{background:var(--card2);border-radius:18px;padding:12px 14px;min-width:0}
+.wxday .top{display:flex;align-items:center;gap:10px}
+.wxday svg{width:42px;height:42px;flex:none}
+.wxday .lbl{color:var(--dim);font-size:14px}.wxday b{display:block;font-size:17px;line-height:1.2}
+.wxday .hl{font-size:26px;font-weight:700;margin-top:6px}.wxday .hl small{color:var(--dim);font-weight:500;font-size:17px;margin-left:8px}
+.wxday .meta{color:var(--dim);font-size:13.5px;margin-top:2px;line-height:1.4}
+.wxhours{display:flex;gap:4px;overflow-x:auto;margin:14px -4px 0;padding:0 4px 4px;scrollbar-width:thin}
+.wxh{flex:0 0 auto;min-width:54px;text-align:center;padding:8px 4px;border-radius:14px;font-size:14px;color:var(--dim)}
+.wxh svg{width:26px;height:26px;display:block;margin:4px auto}.wxh b{color:var(--ink);font-size:16px}
+.fcgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px}
+.fcgrid .mid{font-size:clamp(30px,1vw + 22px,38px)}
+/* charts */
+.chartbox{position:relative}
+.chart{width:100%;height:auto;display:block;touch-action:pan-y}
+.chart .bar-g{transition:opacity .1s}.chart.hov .bar-g{opacity:.4}.chart.hov .bar-g.on{opacity:1}
+.tip{position:absolute;pointer-events:none;background:var(--card2);color:var(--ink);padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.4;white-space:nowrap;transform:translate(-50%,-100%);opacity:0;transition:opacity .08s;z-index:5;box-shadow:0 6px 20px #0005}
+.tip.show{opacity:1}.tip b{display:block;font-size:16px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:16px;color:var(--dim);margin-top:10px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:7px;vertical-align:0}
+.legend i.dash{width:18px;height:0;border-radius:0;border-top:2.5px dashed;vertical-align:4px;background:none!important}
+/* tables & lists */
+.tablewrap{overflow-x:auto;margin:0 -6px}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:right;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}th{font-size:13px;color:var(--dim);font-weight:600}
+td.warnc{color:var(--warn);font-weight:650}
+.list{list-style:none;margin:0;padding:0}
+.list li{padding:11px 0;border-top:1px solid var(--line);font-size:15px}.list li:first-child{border-top:0}
+.list time{display:block;color:var(--dim);font-size:13px;margin-top:2px}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;margin-right:6px;background:var(--card2)}
+.tag.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 18%,transparent)}.tag.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 18%,transparent)}
+/* arrange mode: drag by the grip, resize by the corner */
+.arr{display:none;gap:6px;position:absolute;top:14px;right:14px;z-index:3}
+body.arranging .arr{display:flex}
+.arr button{width:38px;height:38px;border-radius:50%;background:var(--card2);display:inline-flex;align-items:center;justify-content:center;color:var(--ink)}
+.arr svg{width:18px;height:18px}
+.arr .grip{cursor:grab;touch-action:none}.arr .grip:active{cursor:grabbing}
+.arr .sz{width:auto;padding:0 12px;border-radius:999px;font-size:14px;font-weight:650}
+.rsz{display:none;position:absolute;right:4px;bottom:4px;width:30px;height:30px;cursor:ew-resize;touch-action:none;z-index:3;border-radius:0 0 var(--r) 0}
+.rsz::after{content:"";position:absolute;right:9px;bottom:9px;width:12px;height:12px;border-right:3px solid var(--dim);border-bottom:3px solid var(--dim);border-radius:0 0 4px 0}
+body.arranging .rsz{display:block}
+body.arranging .chead{padding-right:132px}body.arranging .chead h2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+body.arranging .card{outline:2px dashed var(--dim2);outline-offset:-2px;user-select:none}
+body.arranging .card.off{opacity:.4}
+.card.off{display:none}body.arranging .card.off{display:block}
+.card.dragging{position:fixed;z-index:60;pointer-events:none;opacity:.92;box-shadow:0 24px 60px #000a;transform:rotate(1deg);margin:0}
+.card.ph{background:transparent;border:2px dashed var(--home);outline:0!important}
+.card.resizing{outline:2px solid var(--home)!important}
+.arrbar{display:none;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;margin:0 0 16px}
+body.arranging .arrbar{display:flex}
+/* sheets */
+dialog{background:var(--card);color:var(--ink);border:0;border-radius:24px;padding:22px;width:min(480px,calc(100vw - 32px));max-height:85vh;box-shadow:0 30px 80px #000a}
+dialog::backdrop{background:#0008;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+dialog h3{margin:0 0 6px;font-size:22px}
+.field{display:block;margin:12px 0}.field>span{display:block;color:var(--dim);font-size:14px;margin-bottom:5px}
+.field input,.field select{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.btn{height:46px;padding:0 20px;border-radius:999px;background:var(--card2);font-weight:600}
+.btn.primary{background:var(--home);color:#fff}.btn.danger{color:var(--bad)}
+.sec{border-top:1px solid var(--line);margin-top:18px;padding-top:14px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--card2);color:var(--ink);padding:12px 20px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;z-index:50;box-shadow:0 8px 30px #0006}
+#toast.show{opacity:1}#toast.err{background:var(--bad);color:#fff}
+.setup{max-width:480px;margin:6vh auto 0}
+@media(max-width:620px){.kv3 b{font-size:26px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="topbar" id="topbar">
+  <button class="pill text" id="arrangeBtn" type="button">Arrange</button>
+  <span class="mini">Solar</span>
+  <span class="pill"><button class="ib" id="refreshBtn" type="button" aria-label="Refresh now" title="Refresh now"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg></button><button class="ib" id="settingsBtn" type="button" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.5 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button></span>
+</div>
+
+<!-- first-time setup -->
+<div id="setupView" class="setup card hidden">
+  <div class="chead"><span class="ico" style="color:var(--solar)" data-icon="sun"></span><h2>Connect your EG4 inverter</h2></div>
+  <p class="dim small" style="margin-top:0">Sign in with your <b>EG4 Monitor</b> app account. The inverter's Wi-Fi dongle uploads its data there, and this server reads it about once a minute.</p>
+  <label class="field"><span>EG4 Monitor email or username</span><input id="suAcct" autocomplete="off"></label>
+  <label class="field"><span>Password</span><input id="suPass" type="password" autocomplete="off"></label>
+  <div class="row" style="margin-top:16px"><button class="btn primary" id="suSave" type="button">Connect</button><button class="btn" id="suDemo" type="button">Try demo mode</button></div>
+  <p class="note">Your EG4 password is saved on this server so it can keep reading the inverter; only the app can read it. Unofficial; not affiliated with EG4.</p>
+</div>
+
+<main id="appView" class="hidden">
+  <div class="titlerow"><h1>Solar</h1>
+    <div class="chiprow"><span class="chip"><i id="chipDot" class="wait"></i><span id="chipText">EG4 cloud</span></span><span class="updated" id="updated"></span></div></div>
+  <div id="banner" class="banner hidden"></div>
+
+  <div class="arrbar"><span class="dim small">Drag a card by <b>⠿</b> to move it, drag its corner to make it wider or narrower, or tap the eye to hide it.</span>
+    <button class="btn" type="button" id="resetLayout">Reset layout</button></div>
+  <div id="cards">
+    <section class="card" data-id="flow">
+      <div class="chead"><span class="ico" style="color:var(--home)" data-icon="bolt"></span><h2>Power flow</h2><span class="skybadge hidden" id="skyBadge"></span></div>
+      <div class="house" id="house" role="img" aria-label="Power flow">
+        <img src="house.webp" alt="" width="1312" height="860" id="houseImg">
+        <div class="tint" id="houseTint"></div>
+        <div class="glow" id="houseGlow"></div>
+        <svg id="houseSky" viewBox="0 0 1312 860" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%"></svg>
+        <svg id="houseFx" viewBox="0 0 1312 860" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div class="hchips">
+        <div class="hchip" id="hcSolar" style="left:28.6%;top:8.7%;width:14.4%;min-height:11.4%"></div>
+        <div class="hchip" id="hcGrid" style="left:82.3%;top:5.3%;width:14.1%;min-height:15.4%"></div>
+        <div class="hchip" id="hcInv" style="left:61%;top:37.7%;width:13.2%;min-height:10.4%"></div>
+        <div class="hchip" id="hcMeter" style="left:74.5%;top:63.1%;width:12.3%;min-height:9.6%"></div>
+        <div class="hchip" id="hcHome" style="left:28.6%;top:62.1%;width:12.2%;min-height:9.9%"></div>
+        <div class="hchip bat" id="hcBat" style="left:61.7%;top:73.2%;width:14.1%;min-height:10.7%"></div>
+        </div>
+      </div>
+      <svg id="flow" viewBox="0 0 640 450" role="img" aria-label="Power flow"></svg>
+    </section>
+    <section class="card" data-id="pv">
+      <div class="chead"><span class="ico" style="color:var(--solar)" data-icon="sun"></span><h2>MPPT solar inputs</h2></div>
+      <div class="pvgrid" id="pvGrid"></div>
+      <div class="spread small" style="margin-top:14px"><span class="dim">Total</span><span id="pvTotal"></span></div>
+    </section>
+
+    <section class="card" data-id="battery">
+      <div class="chead"><span class="ico" style="color:var(--bat)" data-icon="battery"></span><h2>Battery</h2></div>
+      <div class="big" id="batBig">-<small>%</small></div>
+      <div class="bar" id="batBar"><div class="fill"></div><div class="knob"></div></div>
+      <div class="dim" id="batSub"></div>
+    </section>
+
+    <section class="card" data-id="sparkSolar">
+      <div class="chead"><span class="ico" style="color:var(--solar)" data-icon="sun"></span><h2>Solar generation</h2></div>
+      <div class="big" id="spSolar">-<small>kWh today</small></div>
+      <div class="chartbox"><svg id="spSolarChart" class="chart" role="img" aria-label="Solar power today"></svg><div class="tip"></div></div>
+    </section>
+
+    <section class="card" data-id="sparkHome">
+      <div class="chead"><span class="ico" style="color:var(--home)" data-icon="home"></span><h2>Consumption</h2></div>
+      <div class="big" id="spHome">-<small>kWh today</small></div>
+      <div class="chartbox"><svg id="spHomeChart" class="chart" role="img" aria-label="Home power today"></svg><div class="tip"></div></div>
+    </section>
+
+    <section class="card" data-id="sparkGrid">
+      <div class="chead"><span class="ico" style="color:var(--gridIn)" data-icon="wave"></span><h2>Grid usage</h2></div>
+      <div class="big" id="spGrid">-<small>kWh today</small></div>
+      <div class="chartbox"><svg id="spGridChart" class="chart" role="img" aria-label="Power from the grid today"></svg><div class="tip"></div></div>
+    </section>
+
+    <section class="card" data-id="quick">
+      <div class="chead"><span class="ico" style="color:var(--orange)" data-icon="bolt"></span><h2>Quick charge</h2></div>
+      <div class="status"><i id="qcDot"></i><span id="qcState">-</span></div>
+      <div id="qcControls">
+        <div class="seg" id="qcSeg">
+          <button type="button" data-min="30">30 min</button><button type="button" data-min="60" class="on">1 hour</button>
+          <button type="button" data-min="120">2 hours</button><button type="button" data-min="240">4 hours</button><button type="button" data-min="0">Until full</button>
+        </div>
+        <div class="row small dim" style="margin:-4px 0 14px">Stop early at <select class="inline" id="qcTarget"><option value="">-</option><option>60</option><option>70</option><option>80</option><option>90</option><option>95</option></select> %</div>
+      </div>
+      <button class="cta" id="qcBtn" type="button">Start quick charge</button>
+      <p class="note">Charges the battery from the grid right now. It uses grid power.</p>
+      <ul class="list" id="notices" style="margin-top:8px"></ul>
+    </section>
+
+    <section class="card" data-id="storm">
+      <div class="chead"><span class="ico" style="color:var(--warn)" data-icon="storm"></span><h2>Storm watch</h2>
+        <label class="tgl" title="Storm watch on or off"><input type="checkbox" id="swOn" role="switch" aria-label="Storm watch"><span></span></label></div>
+      <div class="status"><i id="swDot"></i><span id="swStatus">-</span></div>
+      <ul class="list" id="swList"></ul>
+      <details class="swset"><summary>Storm watch settings</summary>
+        <label class="field"><span>Charge the battery to</span><select id="swTarget"><option>80</option><option>90</option><option>95</option><option value="100">100 (full)</option></select></label>
+        <label class="field"><span>Start charging when a storm is within</span><select id="swLead"><option value="3">3 hours</option><option value="6">6 hours</option><option value="12">12 hours</option><option value="24">24 hours</option></select></label>
+        <label class="chk"><input type="checkbox" id="swAlerts"> Weather service watches and warnings</label>
+        <label class="chk"><input type="checkbox" id="swThunder"> Thunderstorms in the forecast</label>
+        <label class="chk"><input type="checkbox" id="swWind"> Wind gusts above <input type="number" id="swGust" min="20" max="120" step="5"> mph</label>
+      </details>
+      <p class="note" id="swNote">Uses grid power. Charges once per storm, stops at the target, and won't restart if you stop it.
+        Alerts from the National Weather Service (thunderstorms, tropical storms, high wind, winter storms, floods, and Red Flag fire-weather warnings, when utilities may cut power).</p>
+    </section>
+
+    <section class="card" data-id="independence">
+      <div class="chead"><span class="ico" style="color:var(--gridIn)" data-icon="shield"></span><h2>Energy independence</h2></div>
+      <div class="big" id="indBig">-<small>%</small></div>
+      <div class="bar" id="indBar"><div class="fill"></div><div class="knob"></div></div>
+      <div class="dim">Of today's home use that didn't come from the grid</div>
+    </section>
+
+    <section class="card" data-id="weather">
+      <div class="chead"><span class="ico" style="color:var(--gridIn)" data-icon="partly"></span><h2>Weather</h2>
+        <button class="locbtn" id="wxLocBtn" type="button" title="Change location">-</button></div>
+      <form class="locform hidden" id="wxLocForm" onsubmit="return false">
+        <input id="wxZip" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" placeholder="US ZIP code" aria-label="US ZIP code">
+        <button class="btn primary" id="wxZipSave" type="submit">Set</button><button class="btn" id="wxZipCancel" type="button">Cancel</button>
+      </form>
+      <div class="wxnow"><span class="wxicon" id="wxIcon"></span><div><div class="big" id="wxTemp">-<small>°F</small></div><div class="dim" id="wxText"></div></div></div>
+      <div class="wxdays" id="wxDays"></div>
+      <div class="wxhours" id="wxHours" aria-label="Next hours"></div>
+    </section>
+
+    <section class="card" data-id="solarFc">
+      <div class="chead"><span class="ico" style="color:var(--solar)" data-icon="sun"></span><h2>Solar forecast</h2></div>
+      <div class="fcgrid">
+        <div><span class="dim small">Today</span><div class="mid" id="fcToday">-</div><span class="dim small" id="fcTodaySub"></span></div>
+        <div><span class="dim small">Tomorrow</span><div class="mid" id="fcTom">-</div><span class="dim small" id="fcTomSub"></span></div>
+      </div>
+      <div class="chartbox"><svg id="fcChart" class="chart" role="img" aria-label="Forecast and actual solar power, today and tomorrow"></svg><div class="tip"></div></div>
+      <div class="legend"><span><i class="dash" style="border-color:var(--solar)"></i>Forecast</span><span><i style="background:var(--pv2)"></i>Actual</span></div>
+      <p class="note" id="fcNote"></p>
+    </section>
+
+    <section class="card" data-id="lifetime">
+      <div class="chead"><span class="ico" style="color:var(--life)" data-icon="infinity"></span><h2>Lifetime</h2></div>
+      <div class="life" id="lifeGrid"></div>
+    </section>
+
+    <section class="card" data-id="solarToday">
+      <div class="chead"><span class="ico" style="color:var(--solar)" data-icon="chart"></span><h2>Solar today</h2></div>
+      <div class="spread" style="flex-wrap:wrap"><div class="big" id="stBig">-<small>kWh so far</small></div><div style="text-align:right"><div class="dim small">Peak</div><div class="mid" id="stPeak">-</div><div class="dim small" id="stPeakT"></div></div></div>
+      <div class="chartbox" style="margin-top:8px"><svg id="stChart" class="chart" role="img" aria-label="Solar power by string today"></svg><div class="tip"></div></div>
+      <div class="legend"><span><i style="background:var(--solar)"></i>PV1</span><span><i style="background:var(--pv2)"></i>PV2</span></div>
+    </section>
+
+    <section class="card" data-id="history">
+      <div class="chead"><span class="ico" style="color:var(--gridIn)" data-icon="chart"></span><h2>History</h2></div>
+      <div class="seg" id="histSeg"><button type="button" data-h="0.1667">10 min</button><button type="button" data-h="1">1 hour</button><button type="button" data-h="6" class="on">6 hours</button><button type="button" data-h="24">24 hours</button></div>
+      <div class="chartbox"><svg id="histChart" class="chart" role="img" aria-label="Solar, home and grid power"></svg><div class="tip"></div></div>
+      <div class="legend"><span><i style="background:var(--solar)"></i>Solar</span><span><i style="background:var(--home)"></i>Home</span><span><i class="dash" style="border-color:var(--gridIn)"></i>Grid</span></div>
+    </section>
+
+    <section class="card" data-id="inverter">
+      <div class="chead"><span class="ico" style="color:var(--dim)" data-icon="chip"></span><h2>Inverter</h2></div>
+      <div class="kv3" id="invKv"></div>
+      <div style="margin-top:14px"><span class="dim small">Status</span><div class="mid" id="invStatus" style="color:var(--ok)">-</div></div>
+      <p class="note" id="invMore"></p>
+    </section>
+
+    <section class="card" data-id="modules">
+      <div class="chead"><span class="ico" style="color:var(--bat)" data-icon="stack"></span><h2>Battery details</h2></div>
+      <div class="kv3" id="bankKv"></div>
+      <div class="tablewrap"><table id="modTable"></table></div>
+      <p class="note" id="modNote"></p>
+    </section>
+
+    <section class="card" data-id="daily">
+      <div class="chead"><span class="ico" style="color:var(--solar)" data-icon="calendar"></span><h2>Last 30 days</h2></div>
+      <div class="chartbox"><svg id="dayChart" class="chart" role="img" aria-label="Solar made and home use per day, last 30 days"></svg><div class="tip"></div></div>
+      <div class="legend"><span><i style="background:var(--solar)"></i>Solar</span><span><i style="background:var(--home)"></i>Home used</span></div>
+    </section>
+
+    <section class="card" data-id="monthly">
+      <div class="chead"><span class="ico" style="color:var(--life)" data-icon="calendar"></span><h2>Last 12 months</h2></div>
+      <div class="chartbox"><svg id="monChart" class="chart" role="img" aria-label="Solar made and home use per month, last 12 months"></svg><div class="tip"></div></div>
+      <div class="legend"><span><i style="background:var(--solar)"></i>Solar</span><span><i style="background:var(--home)"></i>Home used</span></div>
+    </section>
+
+    <section class="card" data-id="alerts">
+      <div class="chead"><span class="ico" style="color:var(--warn)" data-icon="bell"></span><h2>Alerts</h2></div>
+      <ul class="list" id="events"></ul>
+      <p class="note">From the inverter's event log in EG4 Monitor, checked every 15 minutes. E codes are faults, W codes are warnings.</p>
+    </section>
+  </div>
+</main>
+</div>
+
+<dialog id="settings">
+  <h3>Settings</h3>
+  <div class="field"><span>Appearance</span><div class="seg" id="themeSeg" style="margin:0"><button type="button" data-t="auto">Automatic</button><button type="button" data-t="light">Light</button><button type="button" data-t="dark">Dark</button></div></div>
+  <div class="field"><span>Power flow</span><div class="seg" id="flowSeg" style="margin:0"><button type="button" data-f="picture">Picture</button><button type="button" data-f="diagram">Diagram</button></div></div>
+  <div class="sec">
+    <b>EG4 Monitor login</b>
+    <label class="field"><span>Email or username</span><input id="stAcct" autocomplete="off"></label>
+    <label class="field"><span>Password</span><input id="stPass" type="password" autocomplete="off" placeholder="saved (leave empty to keep)"></label>
+    <label class="field"><span>Inverter</span><select id="stSerial"></select></label>
+    <div class="row"><button class="btn" id="stFind" type="button">Find inverters</button><button class="btn primary" id="stSave" type="button">Save</button><button class="btn danger" id="stForget" type="button">Sign out</button></div>
+    <p class="note" id="stMsg">The password is saved on this server, readable only by the app. Signing out removes it; the history stays.</p>
+  </div>
+  <div class="sec">
+    <b>Wi-Fi dongle</b>
+    <p class="note" style="margin-top:4px">Reads the inverter straight from its Wi-Fi dongle on your home network, every few seconds. If the dongle can't be reached, the dashboard uses EG4 Monitor until it's back.</p>
+    <label class="field"><span>Dongle MAC address</span><input id="dgMac" autocomplete="off" spellcheck="false" placeholder="like f0:9e:9e:c9:f8:68"></label>
+    <div id="dgFound" class="row hidden" style="flex-wrap:wrap"></div>
+    <div class="row"><button class="btn" id="dgFind" type="button">Find on network</button><button class="btn primary" id="dgSave" type="button">Use dongle</button><button class="btn danger" id="dgOff" type="button">Turn off</button></div>
+    <p class="note" id="dgMsg"></p>
+  </div>
+  <div class="sec"><div class="spread"><span><b>Demo mode</b><br><span class="dim small">A simulated 6000XP to try the dashboard.</span></span><button class="btn" id="stDemo" type="button"></button></div></div>
+  <div class="sec row" style="justify-content:flex-end"><button class="btn" id="stClose" type="button">Done</button></div>
+</dialog>
+
+<dialog id="qcDlg">
+  <h3>Start quick charge?</h3>
+  <p class="dim" id="qcMsg"></p>
+  <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="qcNo" type="button">Cancel</button><button class="btn primary" id="qcYes" type="button" style="background:var(--orange)">Start</button></div>
+</dialog>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let st = null, hist = [], timer = null, ticks = 0, histHours = 6, qcMinutes = 60;
+function store(k, v){ try{ if(v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch{ return null; } }
+async function api(path, opt = {}){
+  const r = await fetch(path.replace(/^\//, ""), {method: opt.method || "GET", headers: {"Content-Type": "application/json"},   // relative: works under /solar/
+    body: opt.body ? JSON.stringify(opt.body) : undefined});
+  if(r.redirected){ location.reload(); return new Promise(() => {}); }   // YunoHost login expired
+  if(!r.ok){
+    let m = r.statusText;
+    try{ const j = await r.json(); m = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail); }catch{}
+    const e = new Error(m); e.status = r.status; throw e;
+  }
+  return r.json();
+}
+let tt;
+function toast(msg, err){ const t = $("#toast"); t.textContent = msg; t.className = "show" + (err ? " err" : ""); clearTimeout(tt); tt = setTimeout(() => t.className = "", 4000); }
+async function guard(fn){ try{ return await fn(); }catch(e){ toast(e.message, true); } }
+function el(tag, props = {}, ...kids){ const n = document.createElement(tag); Object.assign(n, props); kids.forEach(k => n.append(k)); return n; }
+const NS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs, text){ const n = document.createElementNS(NS, tag); for(const k in attrs) n.setAttribute(k, attrs[k]); if(text !== undefined) n.textContent = text; return n; }
+/* number + unit, Voltline style */
+function wParts(w){ w = w || 0; return Math.abs(w) >= 1000 ? [(w / 1000).toFixed(Math.abs(w) >= 10000 ? 0 : 1), "kW"] : [String(Math.round(w)), "W"]; }
+const kW = w => w == null ? "-" : wParts(w).join(" ");
+const kwhParts = v => v == null ? ["-", "kWh"] : v >= 1000 ? [(v / 1000).toFixed(2), "MWh"] : [v.toFixed(1), "kWh"];
+const kWh = v => kwhParts(v).join(" ");
+function setBig(id, num, unit){ $(id).replaceChildren(String(num), el("small", {textContent:unit})); }
+const clock = t => new Date(t * 1000).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+const hr12 = h => (h % 12 || 12) + (h < 12 ? "a" : "p");
+const chartW = svg => Math.max(260, Math.round(svg.getBoundingClientRect().width) || 600);
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+/* icons, colored by the .ico wrapper */
+const ICONS = {
+  sun:'<circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  battery:'<rect x="2.5" y="7" width="17" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5" y="9.5" width="12" height="5" rx="1.3" fill="currentColor"/><path d="M21.5 10.5v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  home:'<path d="M3 11.2 12 4l9 7.2V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="currentColor"/>',
+  wave:'<path d="M2.5 15c2.2-4.5 4.5-6 6.6-3.6s4.2 2.6 6.4-1.4 4.6-3.6 6 .4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+  bolt:'<path d="M13.5 2.5 5 13.5h6l-1 8 8.5-11h-6z" fill="currentColor"/>',
+  shield:'<path d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.3 7.5 10 4.3-1.7 7.5-5.4 7.5-10v-6z" fill="currentColor"/><path d="M12.8 7 9.5 12.6h2.6l-.8 4.4 3.3-5.6H12z" fill="var(--card)"/>',
+  infinity:'<path d="M12 12c-2-2.6-3.6-4-5.4-4a4 4 0 0 0 0 8c1.8 0 3.4-1.4 5.4-4s3.6-4 5.4-4a4 4 0 0 1 0 8c-1.8 0-3.4-1.4-5.4-4z" fill="none" stroke="currentColor" stroke-width="2.2"/>',
+  chart:'<path d="M3 3.5v16.5h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m6.5 15 4-4.5 3 2.5 5.5-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  chip:'<rect x="6" y="6" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1" fill="currentColor"/><path d="M9 2.5V6M15 2.5V6M9 18v3.5M15 18v3.5M2.5 9H6M2.5 15H6M18 9h3.5M18 15h3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  stack:'<rect x="3.5" y="4" width="17" height="4.5" rx="1.5" fill="currentColor"/><rect x="3.5" y="9.75" width="17" height="4.5" rx="1.5" fill="currentColor" opacity=".75"/><rect x="3.5" y="15.5" width="17" height="4.5" rx="1.5" fill="currentColor" opacity=".5"/>',
+  calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  bell:'<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0" fill="currentColor"/>',
+  partly:'<circle cx="9" cy="9" r="3.6" fill="currentColor"/><path d="M8 19.5h9a3.5 3.5 0 0 0 .3-7 5 5 0 0 0-9.6 1.4A2.9 2.9 0 0 0 8 19.5z" fill="currentColor" opacity=".75"/>',
+  storm:'<path d="M7 16h10a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6 1.5A3.3 3.3 0 0 0 7 16z" fill="currentColor" opacity=".55"/><path d="m12.6 12-3 5h2.6l-1 4.5 3.8-6h-2.7l1.4-3.5z" fill="currentColor"/>',
+  up:'<path d="m6 14 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  down:'<path d="m6 10 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  eye:'<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/>'};
+const SUN = '<circle cx="24" cy="24" r="8.5" fill="#ffc22e"/><g stroke="#ffc22e" stroke-width="3" stroke-linecap="round"><path d="M24 6v4.5M24 37.5V42M6 24h4.5M37.5 24H42M11.3 11.3l3.2 3.2M33.5 33.5l3.2 3.2M11.3 36.7l3.2-3.2M33.5 14.5l3.2-3.2"/></g>';
+const MOON = '<path d="M31 33.5A12 12 0 0 1 21.5 12a13 13 0 1 0 14.8 18 12 12 0 0 1-5.3 3.5z" fill="#c9d4ff"/>';
+const CLOUD = (y = 0, c = "#aeb4c0") => `<path transform="translate(0 ${y})" d="M14 38h19a7.5 7.5 0 0 0 .8-15 10.5 10.5 0 0 0-20.2 2.6A6.3 6.3 0 0 0 14 38z" fill="${c}"/>`;
+const WX = {
+  sun:SUN,
+  partly:'<g transform="translate(-6 -6) scale(.8)">' + SUN + '</g>' + CLOUD(3, "#c3c8d2"),
+  cloud:CLOUD(0, "#aeb4c0"),
+  fog:CLOUD(-4, "#aeb4c0") + '<path d="M10 40h28M14 45h20" stroke="#8e96a3" stroke-width="3" stroke-linecap="round"/>',
+  rain:CLOUD(-5, "#8e96a3") + '<path d="m17 38-2 5M25 38l-2 5M33 38l-2 5" stroke="#4c8dff" stroke-width="3" stroke-linecap="round"/>',
+  snow:CLOUD(-5, "#aeb4c0") + '<g fill="#dfe8ff"><circle cx="17" cy="41" r="2.2"/><circle cx="25" cy="44" r="2.2"/><circle cx="33" cy="41" r="2.2"/></g>',
+  storm:CLOUD(-5, "#7d8593") + '<path d="m26 34-5 8h4l-2 6 7-9h-4l2-5z" fill="#ffc22e"/>'};
+const wxIcon = (icon, night) => `<svg viewBox="0 0 48 48" aria-hidden="true">${night && (icon === "sun" || icon === "partly") ? (icon === "sun" ? MOON : MOON + CLOUD(3, "#c3c8d2")) : WX[icon] || WX.cloud}</svg>`;
+document.querySelectorAll("[data-icon]").forEach(n => n.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[n.dataset.icon]}</svg>`);
+
+/* ---------- top bar ---------- */
+addEventListener("scroll", () => $("#topbar").classList.toggle("scrolled", scrollY > 60), {passive:true});
+$("#refreshBtn").onclick = () => guard(async () => {
+  $("#refreshBtn").animate([{transform:"rotate(0)"}, {transform:"rotate(360deg)"}], {duration:700});
+  await api("/api/refresh", {method:"POST"});
+  setTimeout(() => guard(async () => { await refresh(); await loadHist(); }), 2500);
+});
+
+/* ---------- theme ---------- */
+let theme = ["light", "dark"].includes(store("theme")) ? store("theme") : "auto";
+function applyTheme(t){
+  if(t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  document.querySelectorAll("#themeSeg button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  drawAll();
+}
+document.querySelectorAll("#themeSeg button").forEach(b => b.onclick = () => { theme = b.dataset.t; store("theme", theme); applyTheme(theme); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => drawAll());
+
+/* ---------- arrange: drag to move, drag the corner to resize ---------- */
+const DEFAULT_ORDER = [...document.querySelectorAll("#cards .card")].map(c => c.dataset.id);
+const DEFAULT_SIZES = {flow:99};           // columns per card; 99 = full width, otherwise 1
+let layout = {order:DEFAULT_ORDER, hidden:[], sizes:{...DEFAULT_SIZES}};
+try{
+  const l = JSON.parse(store("layout") || "null");
+  if(l && Array.isArray(l.order)){
+    const order = l.order.filter(id => DEFAULT_ORDER.includes(id));
+    DEFAULT_ORDER.forEach((id, i) => { if(!order.includes(id)) order.splice(Math.min(i, order.length), 0, id); });  // cards added since: default spot
+    layout = {order, hidden:(l.hidden || []).filter(id => DEFAULT_ORDER.includes(id)), sizes:{...DEFAULT_SIZES, ...(l.sizes || {})}};
+  }
+}catch{}
+const ROW = 8, MIN_COL = 340;
+let cols = 1;
+const cardsEl = () => [...$("#cards").children].filter(c => c.classList.contains("card"));
+const sizeOf = id => layout.sizes[id] || 1;
+function saveLayout(){ store("layout", JSON.stringify(layout)); }
+function applyLayout(){
+  const box = $("#cards");
+  layout.order.forEach(id => { const c = box.querySelector(`.card[data-id="${id}"]`); if(c){ box.append(c); c.classList.toggle("off", layout.hidden.includes(id)); } });
+  saveLayout(); relayout();
+}
+/* masonry: each card spans as many 8 px rows as it is tall, so cards pack without gaps */
+function fitRows(c){
+  const gap = parseFloat(getComputedStyle($("#cards")).columnGap) || 18;
+  c.style.gridRowEnd = `span ${Math.max(1, Math.ceil((c.getBoundingClientRect().height + gap) / ROW))}`;
+}
+function relayout(){
+  const box = $("#cards"), gap = parseFloat(getComputedStyle(box).columnGap) || 18, w = box.clientWidth || innerWidth;
+  const n = Math.max(1, Math.min(5, Math.floor((w + gap) / (MIN_COL + gap))));
+  const changed = n !== cols; cols = n; box.style.setProperty("--cols", n);
+  cardsEl().forEach(c => { const sz = c.classList.contains("ph") ? +c.dataset.size : sizeOf(c.dataset.id);
+    c.style.gridColumn = `span ${Math.min(n, sz)}`; const b = c.querySelector(".sz"); if(b) b.textContent = sz >= 99 ? "Full" : sz + " col"; });
+  cardsEl().forEach(fitRows);
+  return changed;
+}
+const ro = new ResizeObserver(entries => entries.forEach(e => { if(!e.target.classList.contains("dragging")) fitRows(e.target); }));
+let lastW = 0;
+new ResizeObserver(() => { const w = $("#cards").clientWidth; if(Math.abs(w - lastW) > 2){ lastW = w; relayout(); clearTimeout(window._rt); window._rt = setTimeout(drawAll, 150); } }).observe($("#cards"));
+
+function cardControls(c){
+  const id = c.dataset.id, mk = (cls, icon, label, fn) => { const b = el("button", {type:"button", title:label, className:cls, onclick:fn}); b.setAttribute("aria-label", label); if(icon) b.innerHTML = `<svg viewBox="0 0 24 24">${ICONS[icon]}</svg>`; return b; };
+  const grip = mk("grip", "grip", "Drag to move (or use the arrow keys)");
+  grip.addEventListener("pointerdown", ev => startDrag(c, ev));
+  grip.addEventListener("keydown", ev => {
+    const d = {ArrowUp:-1, ArrowLeft:-1, ArrowDown:1, ArrowRight:1}[ev.key]; if(!d) return;
+    ev.preventDefault(); const i = layout.order.indexOf(id), j = i + d; if(j < 0 || j >= layout.order.length) return;
+    [layout.order[i], layout.order[j]] = [layout.order[j], layout.order[i]]; applyLayout(); grip.focus(); drawAll();
+  });
+  const size = mk("sz", null, "Card width: tap to change", () => { const cur = sizeOf(id), next = cur >= 99 ? 1 : cur + 1 > Math.min(3, cols) ? 99 : cur + 1;
+    layout.sizes[id] = next; saveLayout(); relayout(); drawAll(); });
+  const eye = mk("", "eye", "Show or hide this card", () => { layout.hidden = layout.hidden.includes(id) ? layout.hidden.filter(x => x !== id) : [...layout.hidden, id]; applyLayout(); });
+  c.append(el("div", {className:"arr"}, grip, size, eye));
+  const rz = el("div", {className:"rsz", title:"Drag to make wider or narrower"});
+  rz.addEventListener("pointerdown", ev => startResize(c, ev));
+  c.append(rz);
+  ro.observe(c);
+}
+ICONS.grip = '<g fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></g>';
+cardsEl().forEach(cardControls);
+
+/* drag a card: it floats under the pointer while a dashed placeholder shows where it will land */
+let drag = null;
+function startDrag(c, ev){
+  if(!document.body.classList.contains("arranging") || ev.button > 0) return;
+  ev.preventDefault();
+  const r = c.getBoundingClientRect(), ph = el("div", {className:"card ph"});
+  ph.dataset.size = sizeOf(c.dataset.id); ph.style.height = r.height + "px";
+  c.before(ph);
+  Object.assign(c.style, {width:r.width + "px", height:r.height + "px", left:r.left + "px", top:r.top + "px"});
+  c.classList.add("dragging");
+  drag = {c, ph, dx:ev.clientX - r.left, dy:ev.clientY - r.top, x:ev.clientX, y:ev.clientY};
+  relayout();
+  addEventListener("pointermove", onDrag); addEventListener("pointerup", endDrag, {once:true}); addEventListener("pointercancel", endDrag, {once:true});
+  requestAnimationFrame(autoScroll);
+}
+function onDrag(ev){
+  if(!drag) return;
+  drag.x = ev.clientX; drag.y = ev.clientY;
+  drag.c.style.left = ev.clientX - drag.dx + "px"; drag.c.style.top = ev.clientY - drag.dy + "px";
+  place();
+}
+/* move the placeholder next to the card under the pointer. After each reshuffle the cards reflow, so a different card can end up
+   under a pointer that hasn't moved; wait until the pointer moves on and the layout has settled, or the placeholder chases itself */
+function place(){
+  if(!drag) return;
+  clearTimeout(drag.timer);
+  if(drag.at && Math.hypot(drag.x - drag.at[0], drag.y - drag.at[1]) < 12) return;
+  const wait = 160 - (performance.now() - (drag.moved || 0));
+  if(wait > 0){ drag.timer = setTimeout(place, wait); return; }
+  const under = document.elementFromPoint(drag.x, drag.y), t = under && under.closest("#cards > .card");
+  if(!t || t === drag.ph || t === drag.c) return;
+  const r = t.getBoundingClientRect();
+  // before or after the card under the pointer, by reading order (left half / upper half = before)
+  const before = r.width > r.height * 1.6 ? drag.y < r.top + r.height / 2 : drag.x < r.left + r.width / 2;
+  if(before ? t.previousElementSibling !== drag.ph : t.nextElementSibling !== drag.ph){
+    before ? t.before(drag.ph) : t.after(drag.ph); relayout(); drag.moved = performance.now(); drag.at = [drag.x, drag.y];
+  }
+}
+function autoScroll(){
+  if(!drag) return;
+  const edge = 70, v = drag.y < edge ? -(edge - drag.y) / 3 : drag.y > innerHeight - edge ? (drag.y - (innerHeight - edge)) / 3 : 0;
+  if(v) scrollBy(0, v);
+  requestAnimationFrame(autoScroll);
+}
+function endDrag(){
+  if(!drag) return;
+  removeEventListener("pointermove", onDrag);
+  clearTimeout(drag.timer);
+  const {c, ph} = drag; drag = null;
+  ph.replaceWith(c); c.classList.remove("dragging");
+  ["width", "height", "left", "top"].forEach(k => c.style[k] = "");
+  layout.order = cardsEl().map(x => x.dataset.id); saveLayout(); relayout(); drawAll();
+}
+
+/* resize: drag the corner sideways; the width snaps to whole columns */
+function startResize(c, ev){
+  ev.preventDefault(); ev.stopPropagation();
+  const id = c.dataset.id, box = $("#cards"), gap = parseFloat(getComputedStyle(box).columnGap) || 18;
+  const colW = (box.clientWidth - gap * (cols - 1)) / cols, startW = c.getBoundingClientRect().width, x0 = ev.clientX;
+  c.classList.add("resizing");
+  const move = e => {
+    const span = Math.max(1, Math.min(cols, Math.round((startW + e.clientX - x0 + gap) / (colW + gap))));
+    const sz = span >= cols && cols > 1 ? 99 : span;
+    if(sz !== sizeOf(id)){ layout.sizes[id] = sz; relayout(); }
+  };
+  const up = () => { removeEventListener("pointermove", move); c.classList.remove("resizing"); saveLayout(); relayout(); drawAll(); };
+  addEventListener("pointermove", move); addEventListener("pointerup", up, {once:true}); addEventListener("pointercancel", up, {once:true});
+}
+
+$("#arrangeBtn").onclick = () => {
+  const on = document.body.classList.toggle("arranging");
+  $("#arrangeBtn").textContent = on ? "Done" : "Arrange";
+  relayout(); drawAll();
+};
+$("#resetLayout").onclick = () => { layout = {order:[...DEFAULT_ORDER], hidden:[], sizes:{...DEFAULT_SIZES}}; applyLayout(); drawAll(); toast("Layout reset"); };
+applyLayout();
+
+/* ---------- data ---------- */
+async function refresh(){
+  st = await api("/api/state");
+  const setup = !st.configured && !st.demo;
+  $("#setupView").classList.toggle("hidden", !setup);
+  $("#appView").classList.toggle("hidden", setup);
+  $("#arrangeBtn").classList.toggle("hidden", setup);
+  if(!setup) render();
+}
+async function loadHist(){ hist = await api("/api/history?hours=24"); drawCharts(); drawForecast(); }
+let daysData = null, monthsData = null, longAt = 0;
+async function loadLong(){
+  if(Date.now() - longAt < 30 * 60e3 && daysData) return drawLong();
+  [daysData, monthsData] = await Promise.all([api("/api/days?n=30"), api("/api/months")]); longAt = Date.now(); drawLong();
+}
+
+function render(){
+  if(!st || $("#appView").classList.contains("hidden")) return;
+  const L = st.live, E = st.energy;
+  const offline = L && L.lost, stale = st.stale || (!L && st.error);
+  $("#chipDot").className = !L ? (st.error ? "off" : "wait") : offline || stale ? "off" : "";
+  const C = st.connection || {};
+  $("#chipText").textContent = `${st.demo ? "Demo" : C.source === "local" ? "Wi-Fi" : "EG4 cloud"} · EG4 6000XP`;
+  $("#updated").textContent = L ? `Updated ${clock(L.t)}` : st.error ? "" : "Connecting...";
+  const open = (st.events || []).filter(e => e.open), msgs = [];
+  if(st.error) msgs.push(st.error);
+  else if(!st.demo && (C.dongle_mac || C.dongle_serial) && C.local_error && C.source === "cloud") msgs.push(`The Wi-Fi dongle isn't answering (${C.local_error}). Showing EG4 Monitor readings until it's back.`);
+  if(offline) msgs.push("EG4 reports the inverter offline: its Wi-Fi dongle has stopped uploading.");
+  else if(st.stale && st.last_ok) msgs.push(`No new data from EG4 since ${clock(st.last_ok)}.`);
+  open.forEach(e => msgs.push(`${e.type_text || "Alert"} ${e.code}: ${e.text}`));
+  const b = $("#banner"); b.classList.toggle("hidden", !msgs.length);
+  b.classList.toggle("warn", !st.error && !offline && !open.some(e => e.type === "FAULT"));
+  b.replaceChildren(...msgs.flatMap((m, i) => i ? [el("br"), m] : [m]));
+  drawFlow(L);
+  // MPPT
+  const g = $("#pvGrid"); g.replaceChildren();
+  const strings = L ? (L.pv_strings.length ? L.pv_strings : [{n:1, w:0, v:0}, {n:2, w:0, v:0}]) : [];
+  strings.forEach((s, i) => {
+    const col = i % 2 ? "var(--pv2)" : "var(--solar)", [n, u] = wParts(s.w), a = s.v ? s.w / s.v : 0;
+    const bar = el("div", {className:"mini-bar"}, el("span", {style:`width:${Math.min(100, 100 * s.w / ((st.pv_max || 8000) / Math.max(1, strings.length)))}%;background:${col}`}));
+    g.append(el("div", {className:"pvt", style:`color:${col}`},
+      el("div", {className:"hd"}, el("span", {}, el("i", {style:`background:${col}`}), el("b", {textContent:`PV${s.n}`})), el("span", {className:"dim small", textContent:s.w > 5 ? "tracking" : "idle"})),
+      el("div", {className:"num"}, n, el("small", {textContent:u})), bar,
+      el("div", {className:"kv2"}, el("span", {textContent:"Voltage"}), el("span", {textContent:"Current"}),
+        el("b", {}, (s.v ?? 0).toFixed(1), el("small", {textContent:"V"})), el("b", {}, a.toFixed(1), el("small", {textContent:"A"})))));
+  });
+  $("#pvTotal").textContent = L ? `${kW(L.pv)} of ${(st.pv_max || 8000) / 1000} kW max` : "-";
+  // battery
+  const soc = L && L.soc != null ? Math.round(L.soc) : null;
+  setBig("#batBig", soc ?? "-", "%"); setBar("#batBar", soc || 0);
+  $("#batSub").textContent = !L ? "" : `${L.battery > 20 ? `Charging ${kW(L.battery)}` : L.battery < -20 ? `Discharging ${kW(-L.battery)}` : "Idle"}${L.v_bat ? ` · ${L.v_bat} V` : ""}`;
+  // today
+  const T = E ? E.today : {};
+  setBig("#spSolar", kwhParts(T.solar)[0], "kWh today"); setBig("#spHome", kwhParts(T.used)[0], "kWh today"); setBig("#spGrid", kwhParts(T.imported)[0], "kWh today");
+  setBig("#stBig", kwhParts(T.solar)[0], "kWh so far");
+  const ind = T.used ? Math.max(0, Math.min(100, Math.round(100 * (1 - (T.imported || 0) / T.used)))) : null;
+  setBig("#indBig", ind ?? "-", "%"); setBar("#indBar", ind || 0);
+  // lifetime
+  const Tot = E ? E.total : {}, lg = $("#lifeGrid"); lg.replaceChildren();
+  [["Solar made", "solar", "--solar"], ["Home used", "used", "--home"], ["From grid", "imported", "--gridIn"], ["Battery discharged", "discharged", "--bat"]]  // no export on this 6000XP
+    .forEach(([k, f, c]) => { const [n, u] = kwhParts(Tot[f]); lg.append(el("div", {}, el("span", {textContent:k}), el("b", {style:`color:var(${c})`}, n, el("small", {textContent:u})))); });
+  renderQuick(); renderInverter(); renderModules(); renderAlerts(); renderStorm();
+}
+function setBar(id, pct){
+  const bar = $(id), f = bar.querySelector(".fill"), k = bar.querySelector(".knob");
+  f.style.width = pct + "%"; f.style.backgroundSize = `${bar.clientWidth || 300}px 100%`; k.style.left = pct + "%";
+}
+
+/* ---------- quick charge ---------- */
+document.querySelectorAll("#qcSeg button").forEach(b => b.onclick = () => { qcMinutes = +b.dataset.min; document.querySelectorAll("#qcSeg button").forEach(x => x.classList.toggle("on", x === b)); });
+function renderQuick(){
+  const q = st.quick, active = q && q.active;
+  $("#qcDot").className = active ? "on" : "";
+  $("#qcState").textContent = !q ? "Waiting for the inverter..." : active
+    ? `Charging${q.remain_min ? ` · ${q.remain_min} min left` : ""}${st.quick_target ? ` · stops at ${st.quick_target}%` : ""}` : "Off";
+  $("#qcControls").classList.toggle("hidden", !!active);
+  const btn = $("#qcBtn"); btn.textContent = active ? "Stop quick charge" : "Start quick charge"; btn.classList.toggle("stop", !!active); btn.disabled = !q;
+  $("#notices").replaceChildren(...(st.notices || []).slice(0, 3).map(n => el("li", {}, n.msg, el("time", {textContent:new Date(n.t * 1000).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"})}))));
+}
+$("#qcBtn").onclick = () => {
+  if(st.quick && st.quick.active) return guard(async () => { st = await api("/api/charge", {method:"POST", body:{start:false}}); render(); toast("Quick charge stopped"); });
+  const t = $("#qcTarget").value, dur = qcMinutes >= 60 ? `${qcMinutes / 60} hour${qcMinutes === 60 ? "" : "s"}` : `${qcMinutes} minutes`;
+  $("#qcMsg").textContent = `The inverter will charge the battery from the grid ${qcMinutes ? "for " + dur : "until it's full"}${t ? `, or until it reaches ${t}%` : ""}. It uses grid power.`;
+  $("#qcDlg").showModal();
+};
+$("#qcNo").onclick = () => $("#qcDlg").close();
+$("#qcYes").onclick = () => guard(async () => {
+  $("#qcDlg").close();
+  const t = $("#qcTarget").value;
+  st = await api("/api/charge", {method:"POST", body:{start:true, minutes:qcMinutes || null, target:t ? +t : null}}); render(); toast("Quick charge started");
+});
+
+/* ---------- inverter, modules, alerts ---------- */
+function renderInverter(){
+  const L = st.live, kv = $("#invKv"); kv.replaceChildren();
+  const cell = (k, v, u) => kv.append(el("div", {}, el("span", {textContent:k}), el("b", {}, v ?? "-", el("small", {textContent:u}))));
+  cell("Grid", L && L.v_ac != null ? L.v_ac.toFixed(1) : null, "V"); cell("Frequency", L && L.hz != null ? L.hz.toFixed(2) : null, "Hz"); cell("Temperature", L ? L.t_inner : null, "°C");
+  const s = $("#invStatus"); s.textContent = !L ? "-" : L.lost ? "Offline" : L.status || "Normal";
+  s.style.color = !L ? "var(--dim)" : L.lost ? "var(--bad)" : "var(--ok)";
+  $("#invMore").textContent = L ? `Output ${kW(L.inv)} · battery ${L.t_bat ?? "-"}°C · firmware ${L.fw || "-"} · serial ${st.serial}` : "";
+}
+function renderModules(){
+  const B = st.battery, t = $("#modTable"), kv = $("#bankKv");
+  kv.replaceChildren();
+  if(!B){ t.replaceChildren(); $("#modNote").textContent = "Waiting for battery data..."; return; }
+  const bk = B.bank;
+  if(bk){  // bank-wide values: lowest/highest cell, temperature, cycles
+    const spread = bk.cell_max != null && bk.cell_min != null ? Math.round((bk.cell_max - bk.cell_min) * 1000) : null;
+    const cell = (k, v, u, warn) => kv.append(el("div", {}, el("span", {textContent:k}), el("b", {style:warn ? "color:var(--warn)" : ""}, v ?? "-", el("small", {textContent:u}))));
+    cell("Lowest cell", bk.cell_min != null ? bk.cell_min.toFixed(3) : null, "V"); cell("Highest cell", bk.cell_max != null ? bk.cell_max.toFixed(3) : null, "V");
+    cell("Cell spread", spread, "mV", spread > 50);
+    cell("Coolest", bk.t_min, "°C", bk.t_min != null && bk.t_min < 5); cell("Warmest", bk.t_max, "°C", bk.t_max > 45); cell("Cycles", bk.cycles, "");
+  }
+  const head = el("tr", {}, ...["Module", "Charge", "Health", "Voltage", "Current", "Cells", "Spread", "Temp", "Cycles"].map(h => el("th", {textContent:h})));
+  const rows = B.modules.map(m => {
+    const spread = m.cell_max != null && m.cell_min != null ? Math.round((m.cell_max - m.cell_min) * 1000) : null;
+    const td = (txt, warn) => el("td", {textContent:txt, className:warn ? "warnc" : ""});
+    return el("tr", {}, td(m.lost ? `${m.sn} (offline)` : m.sn, m.lost), td(m.soc != null ? m.soc + "%" : "-"), td(m.soh != null ? m.soh + "%" : "-", m.soh != null && m.soh < 80),
+      td(m.v != null ? m.v.toFixed(2) + " V" : "-"), td(m.a != null ? m.a + " A" : "-"), td(m.cell_min != null ? `${m.cell_min.toFixed(3)}-${m.cell_max.toFixed(3)}` : "-"),
+      td(spread != null ? spread + " mV" : "-", spread > 50), td(m.t_max != null ? `${m.t_min}-${m.t_max}°C` : "-", m.t_max > 45 || m.t_min < 5), td(m.cycles ?? "-"));
+  });
+  t.replaceChildren(...(B.modules.length ? [el("thead", {}, head), el("tbody", {}, ...rows)] : []));
+  $("#modNote").textContent = (B.modules.length ? `${B.count} modules${B.full_ah ? ` · ${B.remain_ah ?? "-"} of ${B.full_ah} Ah left` : ""}. ` : bk ? "Across the whole battery bank (EG4 doesn't report each module for these batteries). " : "EG4 isn't reporting battery details for this inverter. ")
+    + "Highlighted: health under 80%, cell spread over 50 mV, or temperature outside 5-45°C.";
+}
+function renderAlerts(){
+  const ev = st.events || [], ul = $("#events");
+  if(!ev.length) return ul.replaceChildren(el("li", {className:"dim", textContent:"No alerts or faults in the recent log."}));
+  ul.replaceChildren(...ev.map(e => el("li", {}, el("span", {className:"tag " + (e.type === "FAULT" ? "bad" : e.type === "WARNING" ? "warn" : ""), textContent:(e.type_text || e.type || "Event") + (e.open ? " · active" : "")}),
+    el("b", {textContent:e.code + " "}), e.text, el("time", {textContent:`${e.start}${e.end ? " to " + e.end : e.open ? " · still active" : ""}${e.hours ? ` (${e.hours} h)` : ""}`}))));
+}
+
+/* ---------- power flow: sources on the left, where it goes on the right (like Voltline) ---------- */
+function flowSplit(L){
+  const pv = Math.max(0, L.pv || 0), load = Math.max(0, L.load || 0), chg = Math.max(0, L.battery || 0), dis = Math.max(0, -(L.battery || 0));
+  const imp = Math.max(0, L.grid || 0), exp = Math.max(0, -(L.grid || 0));
+  const sh = Math.min(pv, load), sb = Math.min(pv - sh, chg), sg = Math.min(pv - sh - sb, exp);
+  const bh = Math.min(dis, load - sh), gh = Math.min(imp, load - sh - bh);
+  return {sh, sb, sg, bh, gh, gb:Math.max(0, Math.min(imp - gh, chg - sb)), bg:Math.max(0, Math.min(dis - bh, exp - sg)), pv, load, chg, dis, imp, exp};
+}
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let flowStyle = store("flowStyle") === "diagram" ? "diagram" : "picture";
+document.querySelectorAll("#flowSeg button").forEach(b => b.onclick = () => { flowStyle = b.dataset.f; store("flowStyle", flowStyle); drawAll(); });
+
+/* Wires traced on house.webp (1312 x 860), each drawn from where the power comes from to where it goes. */
+const HOUSE_WIRES = {
+  sun1:{d:"M205 140 L325 245", color:"#ffd23f"}, sun2:{d:"M248 118 L378 240", color:"#ffd23f"},
+  pv:{d:"M706 262 L748 262 L748 418", color:"#4ade80"},
+  batIn:{d:"M726 540 L726 638", color:"#b87cff"}, batOut:{d:"M746 638 L746 540", color:"#b87cff"},
+  home:{d:"M705 483 L625 483 L625 562 L540 562", color:"#38bdf8"},
+  grid:{d:"M1135 318 L1135 489 L800 489", color:"#22d3ee"}};
+/* The picture is sized from the window height, so it tends to land on fractions of a pixel, which blurs the text on it.
+   Round its width, then nudge it by whatever fraction is left over in its position. */
+function snapHouse(){
+  const h = $("#house"); if(!h || !h.offsetParent) return;
+  h.style.maxWidth = ""; h.style.left = h.style.top = "";
+  h.style.maxWidth = Math.floor(h.getBoundingClientRect().width) + "px";
+  const r = h.getBoundingClientRect(), fx = r.left - Math.round(r.left), fy = r.top + scrollY - Math.round(r.top + scrollY);
+  if(fx) h.style.left = -fx + "px"; if(fy) h.style.top = -fy + "px";
+}
+new ResizeObserver(() => requestAnimationFrame(snapHouse)).observe($("#cards"));
+function drawHouse(L){
+  const svg = $("#houseFx"); svg.replaceChildren();
+  const F = L ? flowSplit(L) : {pv:0, load:0, chg:0, dis:0, imp:0};
+  const flows = {sun1:F.pv, sun2:F.pv, pv:F.pv, batIn:F.chg, batOut:F.dis, home:F.load, grid:F.imp};
+  const defs = svgEl("defs", {}); svg.append(defs);
+  Object.entries(HOUSE_WIRES).forEach(([k, wire]) => {
+    const w = flows[k] || 0;
+    if(!(w > 15)) return;
+    const path = svgEl("path", {id:"hw-" + k, class:"wire", d:wire.d, stroke:wire.color, style:`color:${wire.color}`});
+    svg.append(path);
+    const len = path.getTotalLength ? path.getTotalLength() : 200;
+    const g = svgEl("radialGradient", {id:"hg-" + k, cx:"50%", cy:"50%", r:"50%", fx:"35%", fy:"30%"});
+    g.append(svgEl("stop", {offset:"0", "stop-color":"#fff"}), svgEl("stop", {offset:".4", "stop-color":wire.color}), svgEl("stop", {offset:"1", "stop-color":wire.color, "stop-opacity":".6"}));
+    defs.append(g);
+    const speed = 170 + w / 12, dur = Math.max(.35, len / speed), n = Math.max(1, Math.min(6, Math.round(len / 85)));
+    for(let i = 0; i < n; i++){
+      const ball = svgEl("circle", {class:"orb", r:10, fill:`url(#hg-${k})`});
+      if(REDUCED){ const pt = path.getPointAtLength(len * (i + .5) / n); ball.setAttribute("cx", pt.x); ball.setAttribute("cy", pt.y); }
+      else{ const am = svgEl("animateMotion", {dur:dur.toFixed(2) + "s", repeatCount:"indefinite", begin:`-${(dur * i / n).toFixed(2)}s`, calcMode:"linear"});
+            am.append(svgEl("mpath", {href:"#hw-" + k})); ball.append(am); }
+      svg.append(ball);
+    }
+  });
+  // live readings in place of the picture's printed labels
+  const T = st && st.energy ? st.energy.today : {};
+  const chip = (id, title, val, sub, dim) => { const c = $(id); c.classList.toggle("dim", !!dim);
+    c.replaceChildren(el("span", {className:"t", textContent:title}), el("span", {className:"v"}, ...val), el("span", {className:"s", textContent:sub})); };
+  const wv = w => { const [n, u] = wParts(w); return [n, el("small", {textContent:u})]; };
+  if(!L){ ["#hcSolar", "#hcGrid", "#hcInv", "#hcMeter", "#hcHome", "#hcBat"].forEach(id => chip(id, "", ["-"], "", true)); return; }
+  chip("#hcSolar", "Solar panels", wv(F.pv), T.solar != null ? `${T.solar.toFixed(1)} kWh today` : "", F.pv <= 15);
+  chip("#hcGrid", "Utility grid", wv(F.imp), F.imp > 15 ? `Importing · ${(T.imported ?? 0).toFixed(1)} kWh today` : `Idle · ${(T.imported ?? 0).toFixed(1)} kWh today`, F.imp <= 15);
+  // the 6000XP's own output reads 0 while it passes grid power through, so show its condition instead
+  chip("#hcInv", "Inverter", [L.t_inner != null ? String(L.t_inner) : "-", el("small", {textContent:"°C"})],
+       `${L.lost ? "Offline" : (L.status || "Normal").replace(/^./, c => c.toUpperCase())}${L.inv > 15 ? ` · ${kW(L.inv)} out` : ""}`, false);
+  const ind = T.used ? Math.max(0, Math.min(100, Math.round(100 * (1 - (T.imported || 0) / T.used)))) : null;
+  chip("#hcMeter", "Independence", [ind != null ? String(ind) : "-", el("small", {textContent:"%"})], "of today's use, off-grid", false);
+  chip("#hcHome", "Home", wv(F.load), T.used != null ? `${T.used.toFixed(1)} kWh today` : "", F.load <= 15);
+  chip("#hcBat", "Battery", [L.soc != null ? String(Math.round(L.soc)) : "-", el("small", {textContent:"%"})],
+       F.chg > 15 ? `Charging ${kW(F.chg)}` : F.dis > 15 ? `Discharging ${kW(F.dis)}` : "Idle", false);
+  $("#house").setAttribute("aria-label", `Solar ${kW(F.pv)}, home ${kW(F.load)}, battery ${L.soc}%${F.chg > 15 ? " charging " + kW(F.chg) : F.dis > 15 ? " discharging " + kW(F.dis) : ""}, grid ${F.imp > 15 ? "importing " + kW(F.imp) : "idle"}`);
+}
+/* ---------- the picture's sky follows the real sun and weather ---------- */
+const SKY_PREVIEW = new URLSearchParams(location.search);   // e.g. ?sky=night&clouds=90&rain=1 to preview a look
+function computeSky(L){
+  const now = Date.now() / 1000, day0 = fc && fc.days && fc.days[0];
+  let phase;
+  if(day0){
+    const rise = day0.sunrise, set = day0.sunset, tw = 40 * 60;
+    phase = now < rise - tw || now > set + tw ? "night" : Math.abs(now - rise) <= tw ? "dawn" : Math.abs(now - set) <= tw ? "dusk" : "day";
+  } else {
+    const h = new Date().getHours();
+    phase = L && L.pv > 50 ? "day" : h >= 7 && h < 18 ? "day" : "night";
+  }
+  const cur = fc && fc.current;
+  let clouds = cur && cur.cloud != null ? cur.cloud : 0, wet = cur ? ["rain", "storm"].includes(cur.icon) : false, text = cur ? cur.text : "";
+  if(SKY_PREVIEW.get("sky")) phase = SKY_PREVIEW.get("sky");
+  if(SKY_PREVIEW.get("clouds")) clouds = +SKY_PREVIEW.get("clouds");
+  if(SKY_PREVIEW.get("rain")) wet = SKY_PREVIEW.get("rain") === "1";
+  return {phase, clouds, wet, text};
+}
+let skyKey = "";
+function cloudShape(x, y, sc, fill, op){
+  return svgEl("path", {d:`M${x} ${y}c-28 0-44-22-34-42 4-9 14-16 26-16 6-24 30-38 54-30 12 4 21 13 24 24 20-6 42 6 44 28 22 2 34 22 26 40-6 10-16 16-28 16z`,
+    transform:`scale(${sc})`, "transform-origin":`${x} ${y}`, fill, opacity:op});
+}
+function drawSky(L){
+  const sky = computeSky(L), key = JSON.stringify(sky);
+  const badge = $("#skyBadge");
+  badge.classList.remove("hidden");
+  badge.textContent = {night:"Night", dawn:"Sunrise", dusk:"Sunset", day:sky.clouds >= 80 ? "Overcast" : sky.clouds >= 40 ? "Partly cloudy" : "Sunny"}[sky.phase] + (sky.wet ? " · rain" : "");
+  if(key === skyKey) return;          // keep the clouds drifting instead of restarting them every refresh
+  skyKey = key;
+  const img = $("#houseImg"), tint = $("#houseTint"), glow = $("#houseGlow"), svg = $("#houseSky");
+  svg.replaceChildren();
+  // the open sky in house.webp: above the roof edge, the ridge and the right-hand gable (clouds pass behind the house)
+  const skyDefs = svgEl("defs", {}), clip = svgEl("clipPath", {id:"skyclip"});
+  clip.append(svgEl("polygon", {points:"0,0 1312,0 1312,415 1072,448 904,128 262,250 0,440"}));
+  skyDefs.append(clip); svg.append(skyDefs);
+  const skyLayer = svgEl("g", {"clip-path":"url(#skyclip)"});
+  const overcast = sky.clouds >= 80, night = sky.phase === "night", twilight = sky.phase === "dawn" || sky.phase === "dusk";
+  // whole-scene light
+  img.style.filter = night ? "brightness(.62) saturate(.6)" : twilight ? "brightness(.9) saturate(1.05)" : overcast ? "brightness(.92) saturate(.75)" : sky.clouds >= 40 ? "saturate(.92)" : "none";
+  tint.style.opacity = night ? 1 : twilight ? .75 : overcast ? .55 : 0;
+  tint.style.background = night ? "linear-gradient(180deg,#141d45 0%,#26305e 45%,#3a4370 100%)"
+    : sky.phase === "dawn" ? "linear-gradient(180deg,#ffb07a 0%,#f6c7b8 40%,#e6e0f0 100%)"
+    : sky.phase === "dusk" ? "linear-gradient(180deg,#ff9a6b 0%,#f0a8a0 40%,#d9c8e6 100%)"
+    : "linear-gradient(180deg,#b9c3cf 0%,#d6dbe2 100%)";
+  // lights on at night: the window and the porch lamp
+  glow.style.opacity = night ? 1 : twilight ? .6 : 0;
+  glow.style.background = "radial-gradient(ellipse 7.5% 11% at 34.7% 66.2%,rgba(255,200,120,1),rgba(255,175,85,.55) 60%,transparent 85%)," +   // living-room window
+                          "radial-gradient(circle at 24.5% 59.9%,rgba(255,215,150,.95),transparent 2.6%)";                                         // porch lamp
+  // the sun becomes the moon; stars come out
+  if(night){
+    const sh = svgEl("radialGradient", {id:"skyhole", cx:"50%", cy:"50%", r:"50%"});
+    sh.append(svgEl("stop", {offset:".55", "stop-color":"#0d1433"}), svgEl("stop", {offset:"1", "stop-color":"#0d1433", "stop-opacity":"0"}));
+    skyDefs.append(sh);
+    svg.append(svgEl("circle", {cx:170, cy:88, r:118, fill:"url(#skyhole)"}));                   // hide the sun and its rays
+    svg.append(svgEl("path", {d:"M330 245 L205 140 M378 240 L248 118", stroke:"#0d1433", "stroke-width":30, "stroke-linecap":"round", opacity:.75}));
+    svg.append(svgEl("circle", {cx:170, cy:85, r:34, fill:"#f2f5ff", style:"filter:drop-shadow(0 0 14px rgba(220,230,255,.8))"}));
+    svg.append(svgEl("circle", {cx:186, cy:76, r:30, fill:"#141c44"}));                          // crescent
+    const rnd = (i => () => (i = (i * 9301 + 49297) % 233280) / 233280)(7);
+    for(let i = 0; i < 46; i++){
+      const x = rnd() * 1312, y = rnd() * 250;
+      if((x > 370 && x < 570 && y > 70) || (x > 1070 && y > 40) || (x > 560 && x < 1010 && y > 120)) continue;   // not over labels or the roof
+      svg.append(svgEl("circle", {class:"star", cx:x.toFixed(0), cy:y.toFixed(0), r:(1 + rnd() * 1.8).toFixed(1), fill:"#fff", style:`animation-delay:-${(rnd() * 3).toFixed(1)}s`}));
+    }
+  }
+  // clouds drift across; overcast hides the sun
+  const nClouds = sky.clouds >= 80 ? 6 : sky.clouds >= 50 ? 4 : sky.clouds >= 25 ? 2 : 0;
+  const cfill = night ? "#4a5272" : overcast || sky.wet ? "#e4e7ec" : "#ffffff", cop = night ? .55 : overcast ? .92 : .85;
+  for(let i = 0; i < nClouds; i++){
+    const g = svgEl("g", {class:"drift", style:`animation-duration:${90 + i * 23}s;animation-delay:-${(i * 37) % 90}s`});
+    g.append(cloudShape(40 + (i % 3) * 30, 60 + (i * 47) % 130, 1.1 + (i % 3) * .35, cfill, cop));
+    skyLayer.append(g);
+  }
+  if(overcast && !night) skyLayer.append(cloudShape(150, 125, 1.9, cfill, .95));                     // sun behind the clouds
+  svg.append(skyLayer);
+  // rain
+  if(sky.wet){
+    const g = svgEl("g", {class:"rain", opacity:night ? .5 : .65});
+    for(let i = 0; i < 90; i++){
+      const x = (i * 97) % 1330, y = (i * 53) % 860;
+      g.append(svgEl("line", {x1:x, y1:y, x2:x - 9, y2:y + 26, stroke:night ? "#9fb4ff" : "#dfe9ff", "stroke-width":2, "stroke-linecap":"round"}));
+    }
+    svg.append(g);
+  }
+}
+function drawFlow(L){
+  const pic = flowStyle === "picture";
+  document.querySelectorAll("#flowSeg button").forEach(b => b.classList.toggle("on", b.dataset.f === flowStyle));
+  $("#house").classList.toggle("hidden", !pic); $("#flow").classList.toggle("hidden", pic);
+  if(pic){ drawSky(L); drawHouse(L); return snapHouse(); }
+  drawDiagram(L);
+}
+function drawDiagram(L){
+  const svg = $("#flow"); svg.replaceChildren();
+  // reshape to the card: narrow cards get a narrower drawing so the numbers stay readable
+  const cw = svg.getBoundingClientRect().width || 560, VW = cw < 520 ? 470 : 640, H = cw < 520 ? 430 : 450;
+  svg.setAttribute("viewBox", `0 0 ${VW} ${H}`);
+  const XL = Math.round(VW * .35), XR = VW - XL, Y = H < 450 ? [60, 210, 360] : [64, 222, 380], bend = (XR - XL) * .55;
+  const F = L ? flowSplit(L) : {pv:0, load:0, chg:0, dis:0, imp:0, exp:0};
+  const defs = svgEl("defs", {}); svg.append(defs);
+  const left = [["Solar", F.pv, "var(--solar)"], ["Battery", F.dis, "var(--bat)"], ["Grid", F.imp, "var(--gridIn)"]];
+  const right = [["Home", F.load, "var(--home)"], ["Battery", F.chg, "var(--bat)"]];  // no grid export: the owner's 6000XP can't send power to the grid
+  const LV = ["--solar", "--bat", "--gridIn"], RV = ["--home", "--bat", "--gridOut"];
+  [[0, 0, F.sh], [0, 1, F.sb], [1, 0, F.bh], [2, 0, F.gh], [2, 1, F.gb]].forEach(([a, b, w], i) => {
+    if(!(w > 15)) return;
+    const y1 = Y[a], y2 = Y[b], d = `M${XL} ${y1} C${XL + bend} ${y1} ${XR - bend} ${y2} ${XR} ${y2}`;
+    const gid = "lg" + i, gr = svgEl("linearGradient", {id:gid, gradientUnits:"userSpaceOnUse", x1:XL, y1, x2:XR, y2});
+    gr.append(svgEl("stop", {offset:"0", "stop-color":cssv(LV[a])}), svgEl("stop", {offset:"1", "stop-color":cssv(RV[b])}));
+    defs.append(gr);
+    const bw = Math.max(10, Math.min(30, 10 + 20 * Math.sqrt(w / 6000)));
+    svg.append(svgEl("path", {class:"band", id:"fp" + i, d, stroke:`url(#${gid})`, "stroke-width":bw}));
+    // glowing spheres riding the band: more and faster the more power flows
+    const sg = svgEl("radialGradient", {id:"sp" + i, cx:"50%", cy:"50%", r:"50%", fx:"35%", fy:"30%"}), col = cssv(LV[a]);
+    sg.append(svgEl("stop", {offset:"0", "stop-color":"#fff", "stop-opacity":"1"}), svgEl("stop", {offset:".35", "stop-color":col}),
+              svgEl("stop", {offset:"1", "stop-color":col, "stop-opacity":".55"}));
+    defs.append(sg);
+    const n = Math.min(5, 2 + Math.floor(w / 1500)), dur = Math.max(.55, 1.35 - w / 5000), r = Math.max(5.5, Math.min(9, bw * .32));
+    for(let k = 0; k < n; k++){
+      const ball = svgEl("circle", {class:"orb", r, fill:`url(#sp${i})`, cx:XL, cy:y1});
+      if(!REDUCED){
+        ball.setAttribute("cx", 0); ball.setAttribute("cy", 0);
+        const am = svgEl("animateMotion", {dur:dur.toFixed(2) + "s", repeatCount:"indefinite", begin:`-${(dur * k / n).toFixed(2)}s`, calcMode:"linear"});
+        am.append(svgEl("mpath", {href:"#fp" + i})); ball.append(am);
+      } else if(k){ continue; }
+      svg.append(ball);
+    }
+  });
+  const node = (x, y, [label, w, col], side, sub) => {
+    const on = w > 15, anchor = side === "L" ? "end" : "start", tx = side === "L" ? x - 22 : x + 22;
+    if(!on) svg.append(svgEl("line", {x1:x, y1:y, x2:x + (side === "L" ? 1 : -1) * Math.min(56, (XR - XL) / 3), y2:y, stroke:col, "stroke-width":3, opacity:.45, "stroke-linecap":"round"}));
+    svg.append(svgEl("circle", {cx:x, cy:y, r:12, fill:col, opacity:on ? 1 : .45}));
+    svg.append(svgEl("text", {x:tx, y:y - 24, class:"lab", "text-anchor":anchor, fill:on ? col : "var(--dim)"}, label));
+    const [n, u] = wParts(w), t = svgEl("text", {x:tx, y:y + 28, class:"val", "text-anchor":anchor, fill:on ? "var(--ink)" : "var(--dim)"});
+    t.append(n); t.append(svgEl("tspan", {class:"unit", dx:6}, u)); svg.append(t);
+    if(sub) svg.append(svgEl("text", {x:tx, y:y + 60, class:"sub", "text-anchor":anchor}, sub));
+  };
+  left.forEach((n, i) => node(XL, Y[i], n, "L"));
+  right.forEach((n, i) => node(XR, Y[i], n, "R", i === 1 && L && L.soc != null ? `${Math.round(L.soc)}% charged` : ""));
+  svg.setAttribute("aria-label", L ? `Solar ${kW(F.pv)}, home ${kW(F.load)}, battery ${L.soc}% ${F.chg > 15 ? "charging " + kW(F.chg) : F.dis > 15 ? "discharging " + kW(F.dis) : "idle"}, grid ${F.imp > 15 ? "importing " + kW(F.imp) : "idle"}` : "Power flow");
+}
+
+/* ---------- charts ---------- */
+const hiders = {};
+document.addEventListener("pointerdown", ev => { if(!ev.target.closest(".chartbox")) Object.values(hiders).forEach(f => f()); });
+function setTip(tip, title, lines){ tip.replaceChildren(el("b", {textContent:title})); lines.forEach((l, i) => { if(i) tip.append(el("br")); tip.append(l); }); }
+function placeTip(svg, tip, xv, yv, W){
+  const sr = svg.getBoundingClientRect(), br = svg.parentElement.getBoundingClientRect(), k = sr.width / W;
+  tip.style.left = Math.max(80, Math.min(br.width - 80, sr.left - br.left + xv * k)) + "px";
+  tip.style.top = Math.max(50, sr.top - br.top + yv * k - 10) + "px"; tip.classList.add("show");
+}
+function interact(svg, tip, W, show){
+  const hide = () => { svg.classList.remove("hov"); svg.querySelectorAll(".on").forEach(x => x.classList.remove("on")); svg.querySelector(".xh")?.remove(); tip.classList.remove("show"); };
+  hiders[svg.id] = hide;
+  const go = ev => { const r = svg.getBoundingClientRect(); show((ev.clientX - r.left) / r.width * W, hide); };
+  svg.onpointerdown = go; svg.onpointermove = ev => { if(ev.pointerType !== "mouse" || ev.buttons <= 1) go(ev); };
+  svg.onpointerleave = ev => { if(ev.pointerType === "mouse") hide(); }; hide();
+}
+/* smooth monotone curve through points (no overshoot) */
+function smooth(p){
+  const n = p.length; if(n < 2) return ""; const f = v => v.toFixed(1);
+  if(n === 2) return `M${f(p[0][0])},${f(p[0][1])}L${f(p[1][0])},${f(p[1][1])}`;
+  const dx = [], m = [], t = [];
+  for(let i = 0; i < n - 1; i++){ dx[i] = p[i + 1][0] - p[i][0]; m[i] = dx[i] ? (p[i + 1][1] - p[i][1]) / dx[i] : 0; }
+  t[0] = m[0]; t[n - 1] = m[n - 2];
+  for(let i = 1; i < n - 1; i++) t[i] = m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2;
+  for(let i = 0; i < n - 1; i++){ if(!m[i]){ t[i] = t[i + 1] = 0; continue; } const a = t[i] / m[i], b = t[i + 1] / m[i], h = a * a + b * b; if(h > 9){ const k = 3 / Math.sqrt(h); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i]; } }
+  let d = `M${f(p[0][0])},${f(p[0][1])}`;
+  for(let i = 0; i < n - 1; i++){ const h = dx[i] / 3; d += `C${f(p[i][0] + h)},${f(p[i][1] + t[i] * h)} ${f(p[i + 1][0] - h)},${f(p[i + 1][1] - t[i + 1] * h)} ${f(p[i + 1][0])},${f(p[i + 1][1])}`; }
+  return d;
+}
+function niceMax(v){ if(v <= 0) return 100; const e = Math.pow(10, Math.floor(Math.log10(v))), s = v / e; return (s <= 1 ? 1 : s <= 2 ? 2 : s <= 3 ? 3 : s <= 4 ? 4 : s <= 6 ? 6 : s <= 8 ? 8 : 10) * e; }
+/* Area/line chart over time, axis labels on the right like Voltline. series: {label, color, var, get, fill, dash}; stack: stacked areas. */
+function areaChart(svg, rows, o){
+  const tip = svg.parentElement.querySelector(".tip"), axes = o.axes !== false;
+  const W = chartW(svg), H = o.H || 250, L = axes ? 4 : 0, R = axes ? 54 : 0, T = 10, B = axes ? 28 : 4, pw = W - L - R, ph = H - T - B;
+  svg.replaceChildren(); svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const start = o.start, end = o.end, x = t => L + (t - start) / (end - start) * pw;
+  const tot = r => o.stack ? o.series.reduce((s, se) => s + Math.max(0, se.get(r) || 0), 0) : Math.max(...o.series.map(se => se.get(r) || 0));
+  const ymax = o.ymax || niceMax(Math.max(1, ...rows.map(tot)) * 1.05), y = v => T + ph - ph * Math.max(0, Math.min(v, ymax)) / ymax;
+  const defs = svgEl("defs", {}); svg.append(defs);
+  if(axes){
+    for(let i = 0; i <= 3; i++){ const v = ymax * i / 3; svg.append(svgEl("line", {x1:L, x2:L + pw, y1:y(v), y2:y(v), stroke:"var(--line)"}));
+      svg.append(svgEl("text", {x:L + pw + 8, y:y(v) + 5, fill:"var(--dim)", "font-size":15}, v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k" : Math.round(v))); }
+    (o.xTicks || []).forEach(t => { if(o.vgrid) svg.append(svgEl("line", {x1:x(t.t), x2:x(t.t), y1:T, y2:T + ph, stroke:"var(--line)"}));
+      svg.append(svgEl("text", {x:x(t.t), y:H - 6, "text-anchor":t.anchor || "middle", fill:"var(--dim)", "font-size":15}, t.text)); });
+  }
+  const segs = []; let cur = [];
+  rows.forEach((r, i) => { if(i && r.t - rows[i - 1].t > (o.gap || 900)){ segs.push(cur); cur = []; } cur.push(r); }); if(cur.length) segs.push(cur);
+  // stacked: draw the running totals from the top layer down so each layer covers the one above it
+  const layers = o.stack ? o.series.map((se, k) => ({...se, get:r => o.series.slice(0, k + 1).reduce((s, s2) => s + Math.max(0, s2.get(r) || 0), 0)})).reverse() : o.series;
+  layers.forEach((se, k) => {
+    const gid = svg.id + "g" + k;
+    if(se.fill){ const gr = svgEl("linearGradient", {id:gid, x1:0, y1:0, x2:0, y2:1});
+      gr.append(svgEl("stop", {offset:"0", "stop-color":cssv(se.var), "stop-opacity":o.stack ? .95 : .45}), svgEl("stop", {offset:"1", "stop-color":cssv(se.var), "stop-opacity":o.stack ? .8 : 0})); defs.append(gr); }
+    segs.forEach(sg => {
+      const pts = sg.filter(r => se.get(r) != null).map(r => [x(r.t), y(se.get(r))]);
+      if(pts.length < 2) return;
+      const d = smooth(pts);
+      if(se.fill) svg.append(svgEl("path", {d:`${d}L${pts[pts.length - 1][0].toFixed(1)},${y(0)}L${pts[0][0].toFixed(1)},${y(0)}Z`, fill:`url(#${gid})`}));
+      if(!o.stack) svg.append(svgEl("path", {d, fill:"none", stroke:se.color, "stroke-width":2.5, "stroke-linecap":"round", "stroke-dasharray":se.dash ? "7 5" : "none"}));
+    });
+  });
+  if(o.now){ const nx = x(Math.min(end, Date.now() / 1000));
+    svg.append(svgEl("line", {x1:nx, x2:nx, y1:T, y2:y(0), stroke:"var(--pv2)", "stroke-dasharray":"4 4", opacity:.8}));
+    svg.append(svgEl("line", {x1:nx, x2:L + pw, y1:y(0), y2:y(0), stroke:"var(--dim)", "stroke-dasharray":"6 6", "stroke-width":2})); }
+  if(!tip) return;
+  interact(svg, tip, W, (xv, hide) => {
+    if(!rows.length) return hide();
+    const t = start + (xv - L) / pw * (end - start); if(t > rows[rows.length - 1].t + 600 || t < rows[0].t - 600) return hide();
+    const r = rows.reduce((b2, r2) => Math.abs(r2.t - t) < Math.abs(b2.t - t) ? r2 : b2);
+    svg.querySelector(".xh")?.remove(); const g = svgEl("g", {class:"xh", "pointer-events":"none"});
+    g.append(svgEl("line", {x1:x(r.t), x2:x(r.t), y1:T, y2:T + ph, stroke:"var(--dim)", "stroke-dasharray":"3 3"}));
+    layers.forEach(se => { const v = se.get(r); if(v != null) g.append(svgEl("circle", {cx:x(r.t), cy:y(v), r:5, fill:se.color, stroke:"var(--card)", "stroke-width":2.5})); });
+    svg.append(g);
+    setTip(tip, clock(r.t), o.series.map(se => `${se.label} ${kW(se.get(r))}`));
+    placeTip(svg, tip, x(r.t), y(tot(r)), W);
+  });
+}
+/* Grouped bars, axis labels on the right. */
+function barChart(svg, bars, {series, fmt, xTicks}){
+  const tip = svg.parentElement.querySelector(".tip");
+  const top = Math.max(1, ...bars.flatMap(b => b.vals.map(v => v || 0))), ymax = niceMax(top * 1.05);
+  const W = chartW(svg), H = 230, L = 4, R = 72, B = 28, T = 10, pw = W - L - R, ph = H - B - T, bw = pw / Math.max(1, bars.length);
+  svg.replaceChildren(); svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const y = v => T + ph - ph * Math.min(v, ymax) / ymax;
+  for(let i = 0; i <= 3; i++){ const v = ymax * i / 3; svg.append(svgEl("line", {x1:L, x2:L + pw, y1:y(v), y2:y(v), stroke:"var(--line)"}));
+    svg.append(svgEl("text", {x:L + pw + 8, y:y(v) + 5, fill:"var(--dim)", "font-size":15}, fmt(v))); }
+  xTicks.forEach(t => svg.append(svgEl("text", {x:L + (t.i + .5) * bw, y:H - 6, "text-anchor":"middle", fill:"var(--dim)", "font-size":15}, t.text)));
+  const n = series.length, inner = Math.max(1, (bw - 3) / n), groups = bars.map((b, i) => {
+    const g = svgEl("g", {class:"bar-g"});
+    b.vals.forEach((v, j) => { if(v > 0) g.append(svgEl("rect", {x:L + i * bw + 1.5 + j * inner, y:y(v), width:Math.max(1, inner - 1), height:Math.max(1, y(0) - y(v)), rx:Math.min(4, inner / 2), fill:series[j]})); });
+    svg.append(g); return g;
+  });
+  interact(svg, tip, W, (xv, hide) => {
+    const i = Math.floor((xv - L) / bw), b = bars[i]; if(!b) return hide();
+    svg.classList.add("hov"); groups.forEach((g, j) => g.classList.toggle("on", j === i));
+    setTip(tip, b.title, b.lines); placeTip(svg, tip, L + (i + .5) * bw, y(Math.max(...b.vals.map(v => v || 0))), W);
+  });
+}
+function dayStart(){ const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() / 1000; }
+function drawCharts(){
+  if(!st || $("#appView").classList.contains("hidden")) return;
+  const now = Date.now() / 1000, d0 = dayStart(), today = hist.filter(r => r.t >= d0);
+  const S = {solar:{label:"Solar", color:"var(--solar)", var:"--solar", get:r => r.pv}, home:{label:"Home", color:"var(--home)", var:"--home", get:r => r.load},
+             grid:{label:"Grid", color:"var(--gridIn)", var:"--gridIn", get:r => r.grid == null ? null : Math.max(0, r.grid)}};
+  // solar today, stacked by string, whole day on the axis
+  const ticks = [0, 4, 8, 12, 16, 20].map(h => ({t:d0 + h * 3600, text:hr12(h), anchor:h ? "middle" : "start"}));
+  areaChart($("#stChart"), today, {start:d0, end:d0 + 86400, stack:true, now:true, vgrid:true, xTicks:ticks, series:[
+    {label:"PV1", color:"var(--solar)", var:"--solar", fill:true, get:r => r.pv1 ?? r.pv}, {label:"PV2", color:"var(--pv2)", var:"--pv2", fill:true, get:r => r.pv2 ?? 0}]});
+  const pk = today.reduce((b, r) => (r.pv || 0) > (b ? b.pv : -1) ? r : b, null);
+  $("#stPeak").textContent = pk ? kW(pk.pv) : "-"; $("#stPeakT").textContent = pk ? clock(pk.t) : "";
+  // sparklines for today
+  [["#spSolarChart", S.solar], ["#spHomeChart", S.home], ["#spGridChart", S.grid]].forEach(([id, se]) =>
+    areaChart($(id), today, {start:d0, end:now, H:90, axes:false, series:[{...se, fill:true}]}));
+  // history with range buttons
+  const from = now - histHours * 3600, rows = hist.filter(r => r.t >= from);
+  const fmtT = t => histHours <= 1 ? new Date(t * 1000).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}) : hr12(new Date(t * 1000).getHours());
+  const step = histHours <= .2 ? 300 : histHours <= 1 ? 1200 : histHours <= 6 ? 7200 : 6 * 3600, xt = [];
+  for(let t = Math.ceil(from / step) * step; t < now - step * .3; t += step) xt.push({t, text:fmtT(t)});
+  areaChart($("#histChart"), rows, {start:from, end:now, gap:histHours <= 1 ? 240 : 900, xTicks:xt, series:[{...S.solar, fill:true}, S.home, {...S.grid, dash:true}]});
+}
+document.querySelectorAll("#histSeg button").forEach(b => b.onclick = () => { histHours = +b.dataset.h; document.querySelectorAll("#histSeg button").forEach(x => x.classList.toggle("on", x === b)); drawCharts(); });
+function drawLong(){
+  if(!daysData || !monthsData) return;
+  const dl = d => new Date(d + "T00:00").toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"});
+  const detail = r => [`Solar ${kWh(r.solar)} · Home ${kWh(r.used)}`, `From grid ${kWh(r.imported)}`, `Battery in ${kWh(r.charged)} · out ${kWh(r.discharged)}`];
+  barChart($("#dayChart"), daysData.map(r => ({vals:[r.solar, r.used], title:dl(r.date), lines:detail(r)})),
+    {series:["var(--solar)", "var(--home)"], fmt:v => Math.round(v) + " kWh", xTicks:daysData.map((r, i) => ({i, text:r.date.slice(5).replace("-", "/")})).filter((_, i) => i % 7 === 0)});
+  barChart($("#monChart"), monthsData.map(r => ({vals:[r.solar, r.used], title:new Date(r.month + "-01T00:00").toLocaleDateString([], {month:"long", year:"numeric"}), lines:detail(r)})),
+    {series:["var(--solar)", "var(--home)"], fmt:v => v >= 1000 ? (v / 1000).toFixed(1) + " MWh" : Math.round(v) + " kWh",
+     xTicks:monthsData.map((r, i) => ({i, text:new Date(r.month + "-01T00:00").toLocaleDateString([], {month:"narrow"})}))});
+}
+/* ---------- storm watch ---------- */
+const whenText = t => { const d = new Date(t * 1000), today = new Date(); return (d.toDateString() === today.toDateString() ? "" : d.toLocaleDateString([], {weekday:"short"}) + " ") + clock(t); };
+function renderStorm(){
+  const W = st.storm; if(!W) return;
+  const c = W.settings, now = Date.now() / 1000;
+  $("#swOn").checked = c.enabled;
+  $("#swDot").className = !c.enabled ? "" : W.charging ? "on" : /^Ready/.test(W.status) ? "ready" : W.hazards.length ? "watch" : "ready";
+  $("#swStatus").textContent = W.status;
+  $("#swList").replaceChildren(...(W.hazards.length ? W.hazards.map(h => {
+      const inH = (h.start - now) / 3600, rel = h.start <= now ? "now" : inH < 1 ? "within the hour" : `in ${Math.round(inH)} h`;
+      return el("li", {className:"hz" + (h.soon ? " soon" : "")}, el("div", {},
+        el("b", {textContent:h.title}), " ", el("span", {className:"tag" + (h.source === "Weather service" ? " warn" : ""), textContent:h.source}),
+        el("time", {textContent:`${whenText(h.start)} – ${whenText(h.end)} · ${rel}`}), ...(h.detail ? [el("div", {className:"dim small", textContent:h.detail})] : [])));
+    }) : [el("li", {className:"dim", textContent:W.alert_error || "No storms in the forecast or weather alerts for the next two days."})]));
+  if(document.activeElement && document.activeElement.closest(".swset")) return;   // don't overwrite while editing
+  $("#swTarget").value = String(c.target); $("#swLead").value = String(c.lead_hours);
+  $("#swAlerts").checked = c.use_alerts; $("#swThunder").checked = c.use_thunder; $("#swWind").checked = c.use_wind; $("#swGust").value = c.gust_mph;
+}
+async function saveStorm(body, msg){ try{ st = await api("/api/storm", {method:"POST", body}); if(msg) toast(msg); } finally{ if(st) render(); } }
+$("#swOn").onchange = () => guard(() => saveStorm({enabled:$("#swOn").checked}, $("#swOn").checked ? "Storm watch on" : "Storm watch off"));
+[["#swTarget", "target", v => +v], ["#swLead", "lead_hours", v => +v], ["#swGust", "gust_mph", v => +v]].forEach(([id, k, f]) =>
+  $(id).onchange = () => guard(() => saveStorm({[k]:f($(id).value)}, "Storm watch updated")));
+[["#swAlerts", "use_alerts"], ["#swThunder", "use_thunder"], ["#swWind", "use_wind"]].forEach(([id, k]) =>
+  $(id).onchange = () => guard(() => saveStorm({[k]:$(id).checked}, "Storm watch updated")));
+
+/* ---------- weather & solar forecast ---------- */
+let fc = null;
+async function loadForecast(){
+  try{ fc = await api("/api/forecast"); }
+  catch(e){ $("#wxText").textContent = e.message; $("#fcNote").textContent = e.message; return; }
+  drawForecast();
+}
+const dayName = t => new Date(t * 1000).toLocaleDateString([], {weekday:"short"});
+function drawForecast(){
+  if(!fc) return;
+  if(flowStyle === "picture" && st) drawSky(st.live);
+  const c = fc.current, [today, tomorrow] = fc.days, now = Date.now() / 1000;
+  $("#wxLocBtn").textContent = fc.location.name + " ✎";
+  $("#wxIcon").innerHTML = wxIcon(c.icon, !c.is_day);
+  setBig("#wxTemp", c.temp != null ? Math.round(c.temp) : "-", "°F");
+  $("#wxText").textContent = `${c.text}${c.feels != null ? ` · feels ${Math.round(c.feels)}°` : ""} · ${c.cloud ?? "-"}% cloud · wind ${Math.round(c.wind ?? 0)} mph`;
+  $("#wxDays").replaceChildren(...[["Today", today], ["Tomorrow", tomorrow]].map(([lbl, d]) => {
+    const top = el("div", {className:"top"});
+    top.innerHTML = wxIcon(d.icon, false);
+    top.append(el("div", {}, el("span", {className:"lbl", textContent:lbl}), el("b", {textContent:d.text})));
+    return el("div", {className:"wxday"}, top, el("div", {className:"hl"}, `${Math.round(d.hi)}°`, el("small", {textContent:`${Math.round(d.lo)}°`})),
+      el("div", {className:"meta", textContent:`Rain ${d.rain ?? 0}% · UV ${Math.round(d.uv ?? 0)}`}),
+      el("div", {className:"meta", textContent:`Sun ${clock(d.sunrise)} – ${clock(d.sunset)}`}));
+  }));
+  $("#wxHours").replaceChildren(...fc.hours.filter(h => h.t >= now - 3600).slice(0, 12).map((h, i) => {
+    const d = el("div", {className:"wxh"});
+    d.append(i ? new Date(h.t * 1000).toLocaleTimeString([], {hour:"numeric"}) : "Now");
+    d.insertAdjacentHTML("beforeend", wxIcon(h.icon, !h.day));
+    d.append(el("b", {textContent:Math.round(h.temp) + "°"}), el("div", {textContent:h.rain ? `${h.rain}%` : " "}));
+    return d;
+  }));
+  // solar forecast vs actual
+  const soFar = st && st.energy ? st.energy.today.solar : null;
+  $("#fcToday").replaceChildren(today.solar_kwh.toFixed(1), el("small", {textContent:"kWh"}));
+  $("#fcTom").replaceChildren(tomorrow.solar_kwh.toFixed(1), el("small", {textContent:"kWh"}));
+  $("#fcTodaySub").textContent = soFar != null ? `${soFar.toFixed(1)} kWh made so far` : today.text;
+  $("#fcTomSub").textContent = `${tomorrow.text} · ${Math.round(tomorrow.hi)}°`;
+  const d0 = dayStart(), hourly = {};
+  hist.filter(r => r.t >= d0 && r.pv != null).forEach(r => { const k = Math.floor(r.t / 3600) * 3600; (hourly[k] = hourly[k] || []).push(r.pv); });
+  const rows = fc.hours.map(h => { const k = h.t - 3600, a = hourly[k];   // Open-Meteo's sunlight is the average of the hour before
+    return {t:h.t - 1800, fc:h.solar_w, act:a && k <= now ? a.reduce((x, y) => x + y, 0) / a.length : null}; });
+  const ticks = [0, 6, 12, 18, 24, 30, 36, 42].map(h => ({t:d0 + h * 3600, text:h === 24 ? dayName(d0 + 86400) : hr12(h % 24), anchor:h ? "middle" : "start"}));
+  areaChart($("#fcChart"), rows, {start:d0, end:d0 + 2 * 86400, now:false, vgrid:true, gap:7200, xTicks:ticks, series:[
+    {label:"Forecast", color:"var(--solar)", var:"--solar", fill:true, dash:true, get:r => r.fc}, {label:"Actual", color:"var(--pv2)", get:r => r.act}]});
+  $("#fcNote").textContent = (fc.calibrated_days ? `Estimated from the ${fc.source} sunlight forecast for ${fc.location.name}, calibrated on your last ${fc.calibrated_days} days of solar.`
+    : `Estimated from the ${fc.source} sunlight forecast for ${fc.location.name} for a typical ~4 kW system; it calibrates itself once there's a few days of your own solar history.`)
+    + " When the battery is full the inverter holds solar back, so actual can be lower.";
+}
+$("#wxLocBtn").onclick = () => { $("#wxLocForm").classList.remove("hidden"); $("#wxZip").value = fc ? fc.location.zip : ""; $("#wxZip").focus(); };
+$("#wxZipCancel").onclick = () => $("#wxLocForm").classList.add("hidden");
+$("#wxLocForm").onsubmit = ev => { ev.preventDefault(); guard(async () => {
+  fc = await api("/api/location", {method:"POST", body:{zip:$("#wxZip").value.trim()}});
+  $("#wxLocForm").classList.add("hidden"); drawForecast(); toast(`Weather for ${fc.location.name}`);
+}); return false; };
+
+function drawAll(){ if(!st) return; render(); drawCharts(); drawLong(); drawForecast(); }
+
+/* ---------- settings ---------- */
+function fillSerials(sel, invs, cur){
+  sel.replaceChildren(...invs.map(i => el("option", {value:i.serial, textContent:`${i.serial}${i.plant ? " · " + i.plant : ""}`})));
+  if(cur && !invs.some(i => i.serial === cur)) sel.append(el("option", {value:cur, textContent:cur}));
+  sel.value = cur || (invs[0] && invs[0].serial) || "";
+}
+function fillSettings(){
+  $("#stAcct").value = st && !st.demo ? st.account : ""; $("#stPass").value = "";
+  fillSerials($("#stSerial"), (st && st.inverters) || [], st && st.serial);
+  $("#stDemo").textContent = st && st.demo ? "Leave demo" : "Show demo";
+  $("#stForget").classList.toggle("hidden", !st || st.demo || !st.configured);
+  fillDongle();
+}
+function fillDongle(){
+  const C = (st && st.connection) || {};
+  const on = !!(C.dongle_mac || C.dongle_serial);
+  $("#dgMac").value = C.dongle_mac || C.dongle_ip || ""; $("#dgFound").classList.add("hidden");
+  $("#dgOff").classList.toggle("hidden", !on);
+  $("#dgMsg").textContent = !on ? "Off: readings come from EG4 Monitor about once a minute."
+    : C.source === "local" ? `Connected to dongle ${C.dongle_serial || ""} at ${C.dongle_ip}. ${C.dongle_mac ? "It's found by its MAC" : "It's recognized by its serial number"}, so a new address from the router is picked up on its own.`
+    : `Not reachable right now${C.local_error ? ": " + C.local_error : ""}. Using EG4 Monitor meanwhile.`;
+}
+$("#dgFind").onclick = () => guard(async () => {
+  $("#dgMsg").textContent = "Looking for the dongle on your network (about 10 seconds)...";
+  const list = await api("/api/dongle/find"), box = $("#dgFound");
+  const dongles = list.filter(d => d.serial);
+  box.replaceChildren(...(dongles.length ? dongles : list).map(d => el("button", {className:"btn", type:"button",
+    textContent:`${d.serial ? "Dongle " + d.serial : "Device"} · ${d.ip}`, onclick:() => { $("#dgMac").value = d.mac || d.ip; }})));
+  box.classList.toggle("hidden", !list.length);
+  $("#dgMsg").textContent = dongles.length ? "Found it. Tap it, then Use dongle." : list.length ? "Something answers on the dongle's port but didn't say it's a dongle. Tap it to try anyway." : "No dongle found on this network. Is this server on the same network as the inverter?";
+});
+$("#dgSave").onclick = () => guard(async () => {
+  const v = $("#dgMac").value.trim(), isIP = /^\d+\.\d+\.\d+\.\d+$/.test(v);
+  $("#dgMsg").textContent = "Trying the dongle...";
+  try{ st = await api("/api/dongle", {method:"POST", body:isIP ? {ip:v} : {mac:v}}); }
+  catch(e){ $("#dgMsg").textContent = e.message; throw e; }
+  render(); fillDongle(); toast("Reading the inverter over Wi-Fi");
+});
+$("#dgOff").onclick = () => guard(async () => {
+  if(!confirm("Stop reading the dongle over Wi-Fi? The dashboard will use EG4 Monitor only.")) return;
+  st = await api("/api/dongle", {method:"POST", body:{mac:""}}); render(); fillDongle(); toast("Wi-Fi dongle turned off");
+});
+$("#settingsBtn").onclick = () => { fillSettings(); $("#settings").showModal(); };
+$("#stClose").onclick = () => $("#settings").close();
+$("#stFind").onclick = () => guard(async () => {
+  $("#stMsg").textContent = "Connecting...";
+  const r = await api("/api/connect", {method:"POST", body:{account:$("#stAcct").value, password:$("#stPass").value || null}});
+  fillSerials($("#stSerial"), r.inverters, $("#stSerial").value); $("#stMsg").textContent = `Found ${r.inverters.length} inverter${r.inverters.length === 1 ? "" : "s"}.`;
+});
+$("#stSave").onclick = () => guard(async () => {
+  st = await api("/api/setup", {method:"POST", body:{account:$("#stAcct").value, password:$("#stPass").value || null, serial:$("#stSerial").value}});
+  $("#settings").close(); toast("Saved. Reading the inverter..."); longAt = 0; await refresh(); setTimeout(() => guard(async () => { await refresh(); await loadHist(); await loadLong(); }), 4000);
+});
+$("#stForget").onclick = () => guard(async () => { if(!confirm("Remove the saved EG4 login from this server?")) return; await api("/api/forget", {method:"POST"}); $("#settings").close(); await refresh(); });
+$("#stDemo").onclick = () => guard(async () => { await api("/api/demo", {method:"POST", body:{on:!st.demo}}); $("#settings").close(); longAt = 0; await refresh(); await loadHist(); await loadLong(); });
+$("#suSave").onclick = () => guard(async () => {
+  $("#suSave").disabled = true;
+  try{ st = await api("/api/setup", {method:"POST", body:{account:$("#suAcct").value, password:$("#suPass").value}}); toast("Connected. The first reading arrives within a minute.");
+       await refresh(); setTimeout(() => guard(async () => { await refresh(); await loadHist(); await loadLong(); }), 4000); }
+  finally{ $("#suSave").disabled = false; }
+});
+$("#suDemo").onclick = () => guard(async () => { await api("/api/demo", {method:"POST", body:{on:true}}); await refresh(); await loadHist(); await loadLong(); });
+
+addEventListener("resize", () => { clearTimeout(window._rt); window._rt = setTimeout(drawAll, 200); });
+
+/* ---------- start ---------- */
+(async () => {
+  applyTheme(theme);
+  await guard(refresh);
+  if(st && (st.configured || st.demo)){ await guard(loadHist); await guard(loadLong); loadForecast(); }
+  // every 5 s; the state is fetched each time while the dongle is live, else every 30 s like before
+  timer = setInterval(() => guard(async () => {
+    ++ticks;
+    const live = st && st.connection && st.connection.source === "local" && !st.demo;
+    if(!live && ticks % 6) return;
+    await refresh(); if(ticks % 6 === 0) drawCharts(); if(ticks % 12 === 0) await loadHist(); if(ticks % 360 === 0) await loadForecast();
+  }), 5000);
+})();
+</script>
+</body>
+</html>
