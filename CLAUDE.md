@@ -18,7 +18,8 @@ Written by the Claude Code session on the owner's Windows PC for the next Claude
   - The Sankey diagram stays available in Settings → Power flow.
 - **Weather + solar forecast** (Open-Meteo, calibrated on the system's own production; default Downey, CA, with a ZIP code box) is built.
 - **Direct Wi-Fi connection: built (2026-10-10, on the Mac).** Wi-Fi first, with the EG4 cloud as automatic fallback. See Task 2 and "Wi-Fi dongle".
-- **Next:** maybe installing on YunoHost, which needs the owner's OK to make a public `_ynh` copy (see "Other open items").
+- **Public install copy created (2026-10-10):** `moreno001-create/eg4-dashboard_ynh`. The owner OK'd publishing it as-is: serials, MAC, house picture and the Downey default all included.
+  **Next:** install it on YunoHost (see "Other open items").
 
 ### Task 1: Voltline look (mostly done 2026-10-10, from iPhone screenshots)
 - **Voltline** is the owner's own iOS/iPadOS app for this inverter. It runs on the iPad **"iPad Refrigerator"** and their iPhone, and its source is probably **on the Mac**.
@@ -64,9 +65,10 @@ python3 tests/test_local.py             # the Wi-Fi dongle path, against a fake 
 Open `http://127.0.0.1:8766/#battery` (or `#history`, `#alerts`) to land on a tab. Demo data is simulated, so no EG4 account is needed.
 
 ### Other open items (owner's decisions pending)
-- **Installing on YunoHost:** the owner installs through the YunoHost web admin. That needs a **public** copy of this repo named
-  `eg4-dashboard_ynh`, made the same way as `water-heater-server_ynh` (see Conventions below). The owner said "let's wait"; **ask before creating it**,
-  because it publishes the code.
+- **Installing on YunoHost:** the public copy `eg4-dashboard_ynh` now exists. Install it from the web admin (Install custom app → that URL).
+  Upgrades must be run over SSH, because the web admin won't upgrade custom apps:
+  `sudo yunohost app upgrade eg4solar -u https://github.com/moreno001-create/eg4-dashboard_ynh`.
+  Then point the water heater's "Solar server address" at `http://127.0.0.1:8766`.
 - **Real-account check:** nobody has run this against the owner's real EG4 account yet. Compare a few numbers with the EG4 app:
   solar, home use, battery %, today's kWh, and 30-day history. See the "Verify" notes under EG4 cloud API.
 - **Theme switch for the water-heater app:** offered, but no answer from the owner yet.
@@ -259,5 +261,9 @@ An expired session returns HTML or 401, so the client logs in again once. `succe
 - Plain, friendly UI text. Anything that changes the inverter needs a confirmation dialog.
 - A new `.py` file must be added to the `cp` list in `scripts/_common.sh`. Bump `version` in `manifest.toml` for each release.
 - Commits end with a `Co-Authored-By:` line. This repo is private.
-  - A public `_ynh` copy exists only so the YunoHost web admin can install it. It gets snapshot commits under the owner's noreply email
-    (`337951492+moreno001-create@users.noreply.github.com`); see the water-heater repo's CLAUDE.md for the exact `git commit-tree` command.
+  - The public copy `moreno001-create/eg4-dashboard_ynh` (remote `public`) exists only so the YunoHost web admin can install it. It gets snapshot commits
+    under the owner's noreply email, never the private history. To publish the current `main`, after pushing to the private repo:
+    ```
+    git fetch public
+    git push public "$(GIT_AUTHOR_NAME='Anthony Moreno' GIT_AUTHOR_EMAIL='337951492+moreno001-create@users.noreply.github.com' GIT_COMMITTER_NAME='Anthony Moreno' GIT_COMMITTER_EMAIL='337951492+moreno001-create@users.noreply.github.com' git commit-tree HEAD^{tree} -p public/main -m "Update to $(git rev-parse --short HEAD): <summary>")":refs/heads/main
+    ```
