@@ -1240,7 +1240,7 @@ $("#dgFind").onclick = () => guard(async () => {
   const list = await api("/api/dongle/find"), box = $("#dgFound");
   const dongles = list.filter(d => d.serial);
   box.replaceChildren(...(dongles.length ? dongles : list).map(d => el("button", {className:"btn", type:"button",
-    textContent:`${d.serial ? "Dongle " + d.serial : "Device"} · ${d.ip}`, onclick:() => { $("#dgMac").value = d.mac || d.ip; }})));
+    textContent:`${d.serial ? "Dongle " + d.serial : "Device"} · ${d.ip}${d.connected ? " · connected now" : ""}`, onclick:() => { $("#dgMac").value = d.mac || d.ip; }})));
   box.classList.toggle("hidden", !list.length);
   $("#dgMsg").textContent = dongles.length ? "Found it. Tap it, then Use dongle." : list.length ? "Something answers on the dongle's port but didn't say it's a dongle. Tap it to try anyway." : "No dongle found on this network. Is this server on the same network as the inverter?";
 });

@@ -645,7 +645,14 @@ async def find_dongles():
     ips = await local.sweep(local.local_networks())
     arp = {ip: mac for mac, ip in local.arp_table().items()}
     out = []
+    # The dongle talks to one connection at a time: the one this server already has open hangs up on the search's
+    # own, so it's listed from the open connection.
+    d = S.dongle
+    if d is not None and d.connected and d.ip:
+        out.append(dict(ip=d.ip, mac=d.mac or arp.get(d.ip, ""), serial=d.dongle_sn or S.settings.get("dongle_serial", ""), connected=True))
     for ip in ips:
+        if any(o["ip"] == ip for o in out):
+            continue
         sn = await local.identify(ip, S.settings["serial"])
         out.append(dict(ip=ip, mac=arp.get(ip, ""), serial=sn))
     return out
