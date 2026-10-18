@@ -17,6 +17,7 @@ connection open and closes it cleanly.
 """
 import asyncio
 import ipaddress
+import os
 import platform
 import re
 import socket
@@ -191,10 +192,32 @@ def _prefix_ifconfig(me):
     return bin(int(m.group(1), 16)).count("1") if m else None
 
 
+def configured_networks():
+    """The home networks named in EG4_NETWORKS ("192.168.4.0/22", comma-separated), for when this runs where it can't see
+    the home network itself (in a Docker container, its own address is on Docker's private network). Each is kept to a
+    /20 at most, like the networks found by themselves."""
+    nets = []
+    for part in os.environ.get("EG4_NETWORKS", "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            n = ipaddress.ip_network(part, strict=False)
+        except ValueError:
+            continue
+        if n.version == 4 and n.prefixlen < MIN_PREFIX:
+            n = ipaddress.ip_network(f"{n.network_address}/{MIN_PREFIX}", strict=False)
+        if n.version == 4 and n not in nets:
+            nets.append(n)
+    return nets
+
+
 def local_networks():
     """The local network around this computer's own address, at its real size (a home network can be bigger than a /24:
     the owner's eero hands out 192.168.4.0-192.168.7.255, so the server at .6.237 must sweep the whole /22 to reach the
-    dongle at .4.26). No packets are sent to find it."""
+    dongle at .4.26). No packets are sent to find it. EG4_NETWORKS, when set, names them instead."""
+    if configured_networks():
+        return configured_networks()
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect(("192.0.2.1", 9))   # documentation address; UDP connect only picks the outgoing interface

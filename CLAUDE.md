@@ -75,6 +75,15 @@ Open `http://127.0.0.1:8766/#battery` (or `#history`, `#alerts`) to land on a ta
 - **Sibling project:** `moreno001-create/water-heater-server` (private; public install copy `water-heater-server_ynh`) is installed and working on
   the owner's YunoHost server. It has its own `CLAUDE.md`.
 
+## Docker image (added 2026-10-18, for Homeport)
+- `Dockerfile` (python:3.12-slim, runs as uid 1000, data in `/data`, listens on 0.0.0.0:8766) and `.dockerignore` (keeps `data/`, with the
+  owner's password, out of the image).
+- `.github/workflows/image.yml` builds it in the **public** copy only and publishes `ghcr.io/moreno001-create/eg4-dashboard:latest`
+  (amd64 + arm64), after checking the page answers. Publishing the public copy (see above) is what releases a new image.
+- In a container the server can't see the home network, so `EG4_NETWORKS` (e.g. `192.168.4.0/22`) names where to sweep for the
+  dongle (`local.configured_networks()`); the ARP table is empty there, so the dongle is recognised by its serial after the sweep.
+- Homeport's catalog has it as "EG4 Solar" (id `eg4-solar`).
+
 ## What this is
 A self-hosted dashboard for the owner's **EG4 6000XP** off-grid/hybrid inverter, packaged as a **YunoHost** app (id `eg4solar`,
 path `/solar`). Its sibling project is `moreno001-create/water-heater-server`. That one has its own Solar tab and a solar
