@@ -62,7 +62,7 @@ results.append(ok((B["cell_max"], B["cell_min"], B["t_max"], B["cycles"]) == (3.
 class FakeDongle:
     def __init__(self, port, serial=DONGLE):
         self.port, self.serial, self.server, self.clients, self.requests = port, serial, None, 0, 0
-        self.holding, self.writes, self.refuse = dict(CHARGING), [], set()
+        self.holding, self.writes, self.refuse, self.conns = dict(CHARGING), [], set(), set()
 
     def frame(self, data):
         data += struct.pack("<H", local.crc16(data))
@@ -79,6 +79,7 @@ class FakeDongle:
 
     async def handle(self, r, w):
         self.clients += 1
+        self.conns.add(w)
         heartbeat = b"\xa1\x1a" + struct.pack("<HH", 2, 13) + bytes([1, 0xC1]) + self.serial.encode() + b"\x00"
         w.write(heartbeat)
         buf = b""
@@ -105,13 +106,16 @@ class FakeDongle:
         except ConnectionError:
             pass
         finally:
-            w.close()
+            self.conns.discard(w); w.close()
 
     async def start(self):
         self.server = await asyncio.start_server(self.handle, "127.0.0.1", self.port)
 
-    async def stop(self):
-        self.server.close(); await self.server.wait_closed(); self.server = None
+    async def stop(self):   # like the dongle leaving the network: its connections go too (Python 3.12 waits for them)
+        self.server.close()
+        for w in list(self.conns):
+            w.close()
+        await self.server.wait_closed(); self.server = None
 
 
 async def dongle_tests():

@@ -15,9 +15,19 @@ EG4's cloud. Unofficial; not affiliated with EG4. The cloud API may change witho
   gusts, is due within your chosen window, it charges the battery from the grid to your target, so it's full if the storm takes the grid down
 - **Wi-Fi first**: with the inverter's Wi-Fi dongle set up (Settings → Wi-Fi dongle → Find on network), live readings come straight
   from it on your home network every few seconds, and EG4 Monitor takes over automatically whenever the dongle can't be reached. The
-  dongle is found by its MAC address, so a new IP address from the router doesn't break it. Read-only
+  dongle is found by its MAC address, so a new IP address from the router doesn't break it
 - **Arrange** moves or hides cards (saved per browser); **Refresh** reads the inverter now; **Settings** has the theme, EG4 login and demo mode
-- **Grid charging (Quick Charge)** for 30 min, 1, 2 or 4 hours or until full, optionally stopping early at a battery level. Everything else is read-only.
+- **Grid charging (Quick Charge)** for 30 min, 1, 2 or 4 hours or until full, optionally stopping early at a battery level
+- **Charts** (the chart button): every reading over 1 hour to 7 days, one chart each with now / low / average / high: power flow,
+  grid use and grid charging, solar string power, voltage and current, battery voltage, charge, current, power, cell voltages
+  (with the spread) and temperature, grid and output voltage and frequency, the inverter's DC bus voltage and its temperatures.
+  Recorded once a minute into the history (voltages and temperatures from version 1.7 on)
+- **Inverter settings** (the sliders button): every setting on EG4 Monitor's Remote Set page, in groups (grid charging, battery,
+  cutoffs, working mode, time windows, generator, smart load, grid protection), each with a plain explanation of what it does.
+  Changes go to the inverter over the Wi-Fi dongle, are reviewed before they're applied, read back, and logged. Each setting stays
+  **locked until a safety check** confirms that this page and EG4 Monitor read it the same way on your inverter (the check needs the
+  EG4 login and the dongle). Installer settings (grid protection, standby, rapid shutdown) need an extra confirmation. Set
+  `EG4_ADMIN_GROUP` to let only that group of the sign-in proxy change settings (Homeport: `admins`)
 - **Demo mode** with a simulated 6000XP, no account needed
 
 ## How it works
@@ -42,6 +52,8 @@ EG4's cloud. Unofficial; not affiliated with EG4. The cloud API may change witho
 |---|---|
 | `server.py`, `index.html`, `requirements.txt` | The web app (FastAPI server + single-page UI) |
 | `eg4.py` | EG4 Monitor cloud client, unit conversion, demo inverter |
+| `local.py` | Wi-Fi dongle client (LuxPower protocol on TCP 8000): readings and settings writes |
+| `inverter_settings.py` | The inverter's settings: register map, explanations, encoding, the check against EG4 Monitor |
 | `manifest.toml`, `scripts/`, `conf/`, `doc/` | YunoHost package (packaging v2, helpers 2.1, YunoHost 12+) |
 | `tests/` | Checks that run against a fake EG4 server, no account needed |
 | `CLAUDE.md` | Handoff notes: design, decisions, status and next steps |

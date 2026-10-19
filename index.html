@@ -206,19 +206,64 @@ dialog h3{margin:0 0 6px;font-size:22px}
 .field input,.field select{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .btn{height:46px;padding:0 20px;border-radius:999px;background:var(--card2);font-weight:600}
 .btn.primary{background:var(--home);color:#fff}.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.45;cursor:default}
 .sec{border-top:1px solid var(--line);margin-top:18px;padding-top:14px}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--card2);color:var(--ink);padding:12px 20px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;z-index:50;box-shadow:0 8px 30px #0006}
 #toast.show{opacity:1}#toast.err{background:var(--bad);color:#fff}
 .setup{max-width:480px;margin:6vh auto 0}
 @media(max-width:620px){.kv3 b{font-size:26px}}
+/* charts page */
+.chtools{display:flex;gap:10px 16px;flex-wrap:wrap;align-items:center;margin:0 0 6px}
+.chtools .seg{margin:0;flex:0 1 460px}
+#chGroups{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,500px),1fr));gap:clamp(14px,1.2vw,22px);align-items:start}
+#chGroups h2.sect{grid-column:1/-1;margin:18px 0 -4px;font-size:22px;font-weight:700;letter-spacing:-.01em}
+.chnote{color:var(--dim);font-size:14px;margin:-6px 0 8px}
+.chstats{margin-top:10px}.chstats td,.chstats th{padding:6px 8px}
+.chstats td i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:0}
+.chstats td i.dash{width:16px;height:0;border-radius:0;border-top:2.5px dashed;vertical-align:4px;background:none!important}
+@media(max-width:620px){.chstats .avg{display:none}.chstats td,.chstats th{padding:6px 4px;font-size:14px}}
+.chempty{color:var(--dim);font-size:15px;padding:30px 0;text-align:center}
+/* inverter settings */
+a.pill{color:var(--ink);text-decoration:none;font-weight:600}
+.tag.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 18%,transparent)}
+.invcheck{margin-bottom:16px}.invcheck p{margin:4px 0 12px;color:var(--dim);font-size:15px;max-width:72ch}
+.invtools{display:flex;gap:10px 12px;flex-wrap:wrap;align-items:center;margin:0 0 16px}
+.invtools input[type=search]{flex:1 1 240px;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 16px}
+.invnav{display:flex;gap:8px;flex-wrap:wrap}
+.invnav a{background:var(--card);border-radius:999px;padding:7px 14px;font-size:14px;font-weight:600;color:var(--ink);text-decoration:none;white-space:nowrap}
+#invGroups{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr));gap:clamp(14px,1.2vw,22px);align-items:start}
+#invGroups .card{scroll-margin-top:80px}
+.gintro{color:var(--dim);font-size:15px;margin:-6px 0 4px}
+.srow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;padding:14px 0;border-top:1px solid var(--line);align-items:start}
+.gintro+.srow{border-top:0}
+.srow.changed{box-shadow:inset 3px 0 0 var(--orange);padding-left:12px;margin-left:-12px}
+.sname{font-weight:600;font-size:16px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.sname .tag{margin:0;font-weight:650}
+.shelp{color:var(--dim);font-size:14.5px;margin:4px 0 0;line-height:1.42}
+.smore{margin-top:6px;font-size:13.5px;color:var(--dim)}.smore summary{cursor:pointer;width:max-content}.smore div{margin-top:4px;line-height:1.5}
+.sctl{display:flex;align-items:center;gap:8px;justify-content:flex-end;min-height:36px;flex-wrap:wrap}
+.sctl input,.sctl select{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.sctl input[type=number]{width:104px;text-align:right}.sctl select{max-width:240px}
+.sctl .u{color:var(--dim);font-size:15px;min-width:1.5em}
+.sctl .x{font-size:13px;font-weight:600;color:var(--dim);background:var(--card2);border-radius:999px;padding:6px 10px}
+.sval{font-weight:650;font-size:16px;text-align:right}
+.invbar{position:sticky;bottom:16px;z-index:15;display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--glass);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid var(--line);border-radius:999px;padding:8px 8px 8px 20px;margin:20px auto 0;max-width:620px;box-shadow:0 10px 30px #0005}
+.invbar b{font-size:16px}
+.chg{list-style:none;margin:10px 0;padding:0;font-size:15px}.chg li{padding:8px 0;border-top:1px solid var(--line)}.chg li:first-child{border-top:0}
+.chg .arrow{color:var(--dim)}
+.dangerbox{background:color-mix(in srgb,var(--bad) 14%,var(--card));border-radius:14px;padding:12px 14px;margin:12px 0;font-size:15px}
+@media(max-width:620px){.srow{grid-template-columns:1fr}.sctl{justify-content:flex-start}.sval{text-align:left}
+  body.invopen .topbar .mini{display:none}
+  .invnav{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}.invnav::-webkit-scrollbar{display:none}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <div class="topbar" id="topbar">
   <button class="pill text" id="arrangeBtn" type="button">Arrange</button>
+  <a class="pill text hidden" id="backBtn" href="#">‹ Dashboard</a>
   <span class="mini">Solar</span>
-  <span class="pill"><button class="ib" id="refreshBtn" type="button" aria-label="Refresh now" title="Refresh now"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg></button><button class="ib" id="settingsBtn" type="button" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.5 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button></span>
+  <span class="pill"><button class="ib" id="chBtn" type="button" aria-label="Charts" title="Charts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 3.5v17h17"/><path d="m7 15 3.5-4 3 2.5L19 7"/></svg></button><button class="ib" id="invBtn" type="button" aria-label="Inverter settings" title="Inverter settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></button><button class="ib" id="refreshBtn" type="button" aria-label="Refresh now" title="Refresh now"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg></button><button class="ib" id="settingsBtn" type="button" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.5 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button></span>
 </div>
 
 <!-- first-time setup -->
@@ -402,7 +447,38 @@ dialog h3{margin:0 0 6px;font-size:22px}
     </section>
   </div>
 </main>
+
+<!-- charts: every voltage, power, current and temperature over time -->
+<main id="chView" class="hidden">
+  <div class="titlerow"><h1>Charts</h1>
+    <div class="chiprow"><span class="chip"><i id="chDot" class="wait"></i><span id="chSrc">Loading...</span></span><span class="updated" id="chRead"></span></div></div>
+  <div class="chtools"><div class="seg" id="chSeg"><button type="button" data-h="1">1 hour</button><button type="button" data-h="6">6 hours</button><button type="button" data-h="24">24 hours</button><button type="button" data-h="72">3 days</button><button type="button" data-h="168">7 days</button></div>
+    <span class="dim small" id="chHint"></span></div>
+  <div id="chGroups"></div>
+</main>
+
+<!-- inverter settings (EG4's "Remote Set", with explanations) -->
+<main id="invView" class="hidden">
+  <div class="titlerow"><h1>Inverter settings</h1>
+    <div class="chiprow"><span class="chip"><i id="invDot" class="wait"></i><span id="invSrc">Reading...</span></span><span class="updated" id="invRead"></span>
+      <button class="btn" id="invReload" type="button">Read again</button></div></div>
+  <div id="invBanner" class="banner hidden"></div>
+  <section class="card invcheck" id="invCheck"></section>
+  <div class="invtools"><input type="search" id="invSearch" placeholder="Search settings, like cutoff or window" aria-label="Search settings"><nav class="invnav" id="invNav" aria-label="Setting groups"></nav></div>
+  <div id="invGroups"></div>
+  <section class="card" id="invLogCard" style="margin-top:22px"><div class="chead"><span class="ico" style="color:var(--dim)" data-icon="calendar"></span><h2>Recent changes</h2></div><ul class="list" id="invLog"></ul></section>
+  <div class="invbar hidden" id="invBar"><b id="invCount"></b><span class="row" style="gap:8px"><button class="btn" id="invDiscard" type="button">Discard</button><button class="btn primary" id="invReview" type="button">Review and apply</button></span></div>
+</main>
 </div>
+
+<dialog id="invDlg">
+  <h3>Change these settings?</h3>
+  <p class="dim small" style="margin:0">They're written to the inverter over Wi-Fi, one register at a time, then read back to confirm.</p>
+  <ul class="chg" id="invDlgList"></ul>
+  <div class="dangerbox hidden" id="invDanger"><b>Installer settings.</b> <span id="invDangerText"></span>
+    <label class="chk" style="margin-top:10px"><input type="checkbox" id="invDangerOk"> I know what these do and accept the risk</label></div>
+  <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="invNo" type="button">Cancel</button><button class="btn primary" id="invYes" type="button">Apply</button></div>
+</dialog>
 
 <dialog id="settings">
   <h3>Settings</h3>
@@ -485,6 +561,7 @@ const ICONS = {
   storm:'<path d="M7 16h10a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6 1.5A3.3 3.3 0 0 0 7 16z" fill="currentColor" opacity=".55"/><path d="m12.6 12-3 5h2.6l-1 4.5 3.8-6h-2.7l1.4-3.5z" fill="currentColor"/>',
   up:'<path d="m6 14 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
   down:'<path d="m6 10 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  lock:'<rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2"/>',
   eye:'<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/>'};
 const SUN = '<circle cx="24" cy="24" r="8.5" fill="#ffc22e"/><g stroke="#ffc22e" stroke-width="3" stroke-linecap="round"><path d="M24 6v4.5M24 37.5V42M6 24h4.5M37.5 24H42M11.3 11.3l3.2 3.2M33.5 33.5l3.2 3.2M11.3 36.7l3.2-3.2M33.5 14.5l3.2-3.2"/></g>';
 const MOON = '<path d="M31 33.5A12 12 0 0 1 21.5 12a13 13 0 1 0 14.8 18 12 12 0 0 1-5.3 3.5z" fill="#c9d4ff"/>';
@@ -659,10 +736,10 @@ applyLayout();
 /* ---------- data ---------- */
 async function refresh(){
   st = await api("/api/state");
-  const setup = !st.configured && !st.demo;
-  $("#setupView").classList.toggle("hidden", !setup);
-  $("#appView").classList.toggle("hidden", setup);
-  $("#arrangeBtn").classList.toggle("hidden", setup);
+  const setup = !st.configured && !st.demo, invOpen = !!VIEWS[location.hash.slice(1)];
+  $("#setupView").classList.toggle("hidden", !setup || invOpen);
+  $("#appView").classList.toggle("hidden", setup || invOpen);
+  $("#arrangeBtn").classList.toggle("hidden", setup || invOpen);
   if(!setup) render();
 }
 async function loadHist(){ hist = await api("/api/history?hours=24"); drawCharts(); drawForecast(); }
@@ -1278,10 +1355,370 @@ $("#suDemo").onclick = () => guard(async () => { await api("/api/demo", {method:
 
 addEventListener("resize", () => { clearTimeout(window._rt); window._rt = setTimeout(drawAll, 200); });
 
+/* ---------- charts page ---------- */
+let chRows = [], chHours = +(store("chHours") || 24), chTimer = null, chAt = 0;
+if(![1, 6, 24, 72, 168].includes(chHours)) chHours = 24;
+const nz = v => v ? v : null;                     // 0 V / 0 Hz means "not there" (no grid, solar asleep): leave a gap, don't squash the scale
+const amps = (w, v) => w == null || !v || v < 20 ? null : w / v;
+const C = (label, color, get, extra = {}) => ({label, color:`var(${color})`, get, ...extra});
+const CHARTS = [
+  ["Power", [
+    {id:"power", title:"Power flow", icon:"bolt", color:"--home", unit:"W", zero:true, minSpan:200,
+     note:"Battery is above zero while charging and below zero while it powers the house.",
+     series:[C("Solar", "--solar", r => r.pv), C("Home", "--home", r => r.load), C("Grid", "--gridIn", r => r.grid, {dash:true}), C("Battery", "--bat", r => r.battery)]},
+    {id:"gridw", title:"Grid use", icon:"wave", color:"--gridIn", unit:"W", zero:true, minSpan:200,
+     note:"Grid charging is the part of grid power going into the battery.",
+     series:[C("From grid", "--gridIn", r => r.grid, {dash:true}), C("Grid charging", "--orange", r => r.rec)]}]],
+  ["Solar", [
+    {id:"pvw", title:"Solar strings: power", icon:"sun", color:"--solar", unit:"W", zero:true, minSpan:100,
+     series:[C("PV1", "--solar", r => r.pv1), C("PV2", "--pv2", r => r.pv2)]},
+    {id:"pvv", title:"Solar strings: voltage", icon:"sun", color:"--solar", unit:"V", dec:1, zero:true, minSpan:10,
+     note:"Each string's voltage. It drops to near zero at night and sags a little as panels heat up.",
+     series:[C("PV1", "--solar", r => r.v1), C("PV2", "--pv2", r => r.v2)]},
+    {id:"pva", title:"Solar strings: current", icon:"sun", color:"--solar", unit:"A", dec:2, zero:true, minSpan:1,
+     note:"Worked out from each string's power and voltage.",
+     series:[C("PV1", "--solar", r => amps(r.pv1, r.v1)), C("PV2", "--pv2", r => amps(r.pv2, r.v2))]}]],
+  ["Battery", [
+    {id:"batv", title:"Battery voltage", icon:"battery", color:"--bat", unit:"V", dec:1, minSpan:1,
+     series:[C("Battery", "--bat", r => nz(r.vb))]},
+    {id:"soc", title:"Battery charge", icon:"battery", color:"--bat", unit:"%", fixed:[0, 100],
+     series:[C("Charge", "--bat", r => r.soc)]},
+    {id:"bata", title:"Battery current", icon:"battery", color:"--bat", unit:"A", dec:1, zero:true, minSpan:5,
+     note:"Worked out from battery power and voltage: above zero while charging.",
+     series:[C("Current", "--bat", r => amps(r.battery, r.vb))]},
+    {id:"batw", title:"Battery power", icon:"battery", color:"--bat", unit:"W", zero:true, minSpan:200,
+     series:[C("Charging", "--bat", r => r.chg ?? (r.battery > 0 ? r.battery : 0)), C("Discharging", "--life", r => r.dis ?? (r.battery < 0 ? -r.battery : 0), {dash:true})]},
+    {id:"cells", title:"Cell voltages", icon:"stack", color:"--bat", unit:"V", dec:3, minSpan:.02,
+     note:"Highest and lowest cell in the bank. A gap that keeps growing means the cells need balancing (charge to 100%).",
+     series:[C("Highest cell", "--bat", r => nz(r.cmax)), C("Lowest cell", "--gridIn", r => nz(r.cmin), {dash:true})], spread:true},
+    {id:"temps", title:"Battery temperature", icon:"battery", color:"--bat", unit:"°C", dec:1, minSpan:4,
+     series:[C("Battery", "--bat", r => r.tb)]}]],
+  ["Grid and output", [
+    {id:"acv", title:"AC voltage", icon:"wave", color:"--gridIn", unit:"V", dec:1, minSpan:4,
+     note:"Grid is the utility input; output is what the inverter feeds the house. No grid line means the grid was off.",
+     series:[C("Grid", "--gridIn", r => nz(r.vac), {dash:true}), C("Output", "--home", r => nz(r.veps))]},
+    {id:"hz", title:"Frequency", icon:"wave", color:"--gridIn", unit:"Hz", dec:2, minSpan:.1,
+     series:[C("Grid", "--gridIn", r => nz(r.hz), {dash:true}), C("Output", "--home", r => nz(r.heps))]}]],
+  ["Inverter", [
+    {id:"bus", title:"DC bus voltage", icon:"chip", color:"--life", unit:"V", dec:1, minSpan:6,
+     note:"The high-voltage link inside the inverter between the solar chargers, the battery converter and the AC side.",
+     series:[C("Bus 1", "--life", r => nz(r.bus1)), C("Bus 2", "--pv2", r => nz(r.bus2), {dash:true})]},
+    {id:"itemp", title:"Inverter temperatures", icon:"chip", color:"--orange", unit:"°C", dec:0, minSpan:4,
+     note:"The fans speed up as these rise; the inverter cuts power back if it runs too hot.",
+     series:[C("Inside", "--orange", r => r.ti), C("Heatsink 1", "--solar", r => r.tr1), C("Heatsink 2", "--pv2", r => r.tr2, {dash:true})]}]],
+];
+function niceStep(x){ if(!(x > 0)) return 1; const e = Math.pow(10, Math.floor(Math.log10(x))), f = x / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * e; }
+function fmtU(o, v){ if(v == null || !isFinite(v)) return "-"; return o.unit === "W" ? kW(v) : `${v.toFixed(o.dec || 0)} ${o.unit}`; }
+function chTicks(start, end){
+  const span = end - start, step = span <= 3600 ? 600 : span <= 6 * 3600 ? 3600 : span <= 86400 ? 4 * 3600 : span <= 3 * 86400 ? 12 * 3600 : 86400;
+  const off = new Date().getTimezoneOffset() * 60, out = [];
+  for(let t = Math.ceil((start - off) / step) * step + off; t < end - step * .2; t += step){
+    const d = new Date(t * 1000);
+    out.push({t, text:step >= 86400 ? d.toLocaleDateString([], {weekday:"short"}) : step >= 12 * 3600 ? d.toLocaleDateString([], {weekday:"short"}) + " " + hr12(d.getHours())
+      : step >= 3600 ? hr12(d.getHours()) : clock(t)});
+  }
+  return out;
+}
+/* Lines on their own scale (not from zero unless asked): for voltages, frequencies, temperatures, and signed powers. */
+function lineChart(svg, rows, o){
+  const tip = svg.parentElement.querySelector(".tip");
+  const W = chartW(svg), H = 220, L = 4, R = 64, T = 10, B = 28, pw = W - L - R, ph = H - T - B;
+  svg.replaceChildren(); svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const vals = rows.flatMap(r => o.series.map(se => se.get(r))).filter(v => v != null && isFinite(v));
+  if(!vals.length) return false;
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if(o.zero){ lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+  if(o.fixed) [lo, hi] = o.fixed;
+  if(hi - lo < (o.minSpan || 1e-6)){ const m = (hi + lo) / 2, h = (o.minSpan || 1) / 2; lo = o.zero && lo >= 0 ? Math.max(0, m - h) : m - h; hi = lo + 2 * h; }
+  const step = niceStep((hi - lo) / 4); lo = Math.floor(lo / step + 1e-9) * step; hi = Math.ceil(hi / step - 1e-9) * step;
+  const x = t => L + (t - o.start) / (o.end - o.start) * pw, y = v => T + ph - (v - lo) / (hi - lo) * ph;
+  const dec = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+  for(let v = lo; v <= hi + step / 2; v += step){
+    svg.append(svgEl("line", {x1:L, x2:L + pw, y1:y(v), y2:y(v), stroke:"var(--line)", "stroke-width":Math.abs(v) < step / 2 && lo < 0 ? 2 : 1}));
+    svg.append(svgEl("text", {x:L + pw + 8, y:y(v) + 5, fill:"var(--dim)", "font-size":14},
+      o.unit === "W" && Math.abs(hi) >= 1000 ? (v / 1000).toFixed(Math.max(0, dec - 3) || (step % 1000 ? 1 : 0)) + "k" : v.toFixed(dec)));
+  }
+  chTicks(o.start, o.end).forEach(tk => { const tx = x(tk.t);   // a label that would be cut off at an edge is left out
+    if(tx > L + 18 && tx < L + pw - 12) svg.append(svgEl("text", {x:tx, y:H - 6, "text-anchor":"middle", fill:"var(--dim)", "font-size":14}, tk.text)); });
+  const gap = Math.max(900, 3 * (o.end - o.start) / 600);
+  o.series.forEach(se => {
+    let d = "", prev = null;
+    rows.forEach(r => {
+      const v = se.get(r);
+      if(v == null || !isFinite(v)){ prev = null; return; }
+      d += (prev && r.t - prev.t <= gap ? "L" : "M") + x(r.t).toFixed(1) + "," + y(v).toFixed(1); prev = r;
+    });
+    if(d) svg.append(svgEl("path", {d, fill:"none", stroke:se.color, "stroke-width":2.2, "stroke-linejoin":"round", "stroke-linecap":"round", "stroke-dasharray":se.dash ? "7 5" : "none"}));
+  });
+  if(tip) interact(svg, tip, W, (xv, hide) => {
+    const t = o.start + (xv - L) / pw * (o.end - o.start);
+    if(t > rows[rows.length - 1].t + gap || t < rows[0].t - gap) return hide();
+    const r = rows.reduce((b2, r2) => Math.abs(r2.t - t) < Math.abs(b2.t - t) ? r2 : b2);
+    svg.querySelector(".xh")?.remove(); const g = svgEl("g", {class:"xh", "pointer-events":"none"});
+    g.append(svgEl("line", {x1:x(r.t), x2:x(r.t), y1:T, y2:T + ph, stroke:"var(--dim)", "stroke-dasharray":"3 3"}));
+    let top = T + ph;
+    o.series.forEach(se => { const v = se.get(r); if(v != null && isFinite(v)){ g.append(svgEl("circle", {cx:x(r.t), cy:y(v), r:4.5, fill:se.color, stroke:"var(--card)", "stroke-width":2})); top = Math.min(top, y(v)); } });
+    svg.append(g);
+    const when = o.end - o.start > 86400 ? new Date(r.t * 1000).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"}) : clock(r.t);
+    setTip(tip, when, o.series.map(se => `${se.label} ${fmtU(o, se.get(r))}`));
+    placeTip(svg, tip, x(r.t), top, W);
+  });
+  return true;
+}
+function chartCard(o){
+  const svg = svgEl("svg", {id:"ch_" + o.id, class:"chart", role:"img", "aria-label":o.title});
+  const card = el("section", {className:"card"}, el("div", {className:"chead"}, ico(o.icon, o.color), el("h2", {textContent:o.title})));
+  if(o.note) card.append(el("p", {className:"chnote", textContent:o.note}));
+  const box = el("div", {className:"chartbox"}); box.append(svg, el("div", {className:"tip"}));
+  card.append(box);
+  return card;
+}
+function renderCharts(){
+  const now = Date.now() / 1000, start = now - chHours * 3600, rows = chRows;
+  const L = st && (st.demo ? st.live : st.live);
+  const src = st && st.demo ? ["", "Demo"] : st && st.connection && st.connection.source === "local" ? ["", "Wi-Fi · recorded every minute"] : st && st.live ? ["wait", "EG4 Monitor · recorded every minute"] : ["off", "No readings"];
+  $("#chDot").className = src[0]; $("#chSrc").textContent = src[1];
+  $("#chRead").textContent = chAt ? "Updated " + clock(chAt / 1000) : "";
+  const first = rows.length ? rows[0].t : null;
+  $("#chHint").textContent = first && first > start + 3600 ? `History starts ${new Date(first * 1000).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"})}. Voltages and temperatures are recorded from this version on.` : "Hover or touch a chart for exact values.";
+  const out = [];
+  CHARTS.forEach(([section, list]) => {
+    out.push(el("h2", {className:"sect", textContent:section}));
+    list.forEach(o => out.push(chartCard(o)));
+  });
+  $("#chGroups").replaceChildren(...out);
+  CHARTS.forEach(([, list]) => list.forEach(o => {
+    const svg = $("#ch_" + o.id), card = svg.closest(".card");
+    const drawn = lineChart(svg, rows, {...o, start, end:now});
+    if(!drawn){ svg.closest(".chartbox").replaceWith(el("div", {className:"chempty", textContent:"No readings for this yet in the chosen range. They're recorded once a minute from now on."})); return; }
+    const head = el("tr", {}, el("th", {textContent:""}), el("th", {textContent:"Now"}), el("th", {textContent:"Low"}), el("th", {textContent:"Average", className:"avg"}), el("th", {textContent:"High"}));
+    const body = o.series.map(se => {
+      const vs = rows.map(se.get).filter(v => v != null && isFinite(v));
+      const last = [...rows].reverse().map(se.get).find(v => v != null && isFinite(v));
+      const sw = el("i", {className:se.dash ? "dash" : ""}); if(se.dash) sw.style.borderColor = se.color; else sw.style.background = se.color;
+      return el("tr", {}, el("td", {}, sw, se.label), ...(vs.length ? [last, Math.min(...vs), vs.reduce((a, b) => a + b, 0) / vs.length, Math.max(...vs)] : [null, null, null, null])
+        .map((v, i) => el("td", {textContent:fmtU(o, v), className:i === 2 ? "avg" : ""})));
+    });
+    const table = el("table", {className:"chstats"}, el("thead", {}, head), el("tbody", {}, ...body));
+    const wrap = el("div", {className:"tablewrap"}, table);
+    if(o.spread){
+      const sp = rows.map(r => r.cmax && r.cmin ? (r.cmax - r.cmin) * 1000 : null).filter(v => v != null);
+      if(sp.length) card.append(el("p", {className:"note", textContent:`Spread between highest and lowest cell: ${Math.round(sp[sp.length - 1])} mV now, ${Math.round(Math.max(...sp))} mV at most in this range.`}));
+    }
+    card.append(wrap);
+  }));
+}
+async function loadCharts(){
+  document.querySelectorAll("#chSeg button").forEach(b => b.classList.toggle("on", +b.dataset.h === chHours));
+  if(!st) await refresh().catch(() => {});
+  chRows = await api(`/api/history?hours=${chHours}&points=600`); chAt = Date.now();
+  renderCharts();
+  clearInterval(chTimer);
+  chTimer = setInterval(() => guard(async () => {
+    if(location.hash !== "#charts") return clearInterval(chTimer);
+    st = await api("/api/state"); chRows = await api(`/api/history?hours=${chHours}&points=600`); chAt = Date.now(); renderCharts();
+  }), 60000);
+}
+document.querySelectorAll("#chSeg button").forEach(b => b.onclick = () => { chHours = +b.dataset.h; store("chHours", String(chHours)); guard(loadCharts); });
+$("#chBtn").onclick = () => { location.hash = "charts"; };
+addEventListener("resize", () => { if(location.hash === "#charts" && chRows.length){ clearTimeout(window._crt); window._crt = setTimeout(renderCharts, 200); } });
+
+/* ---------- inverter settings ---------- */
+let inv = null, invPending = {}, invPoll = null;
+const GICON = {charge:["bolt", "--orange"], battery:["battery", "--bat"], discharge:["stack", "--bat"], output:["home", "--home"], windows:["calendar", "--life"],
+  generator:["bolt", "--solar"], smartload:["wave", "--gridIn"], functions:["chip", "--dim"], grid:["shield", "--gridIn"], info:["chip", "--dim"]};
+const LOCKED = {unchecked:"Locked: not checked with EG4 yet", weak:"Locked: EG4 couldn't confirm it", raw:"Locked: units differ from EG4's", missing:"Locked: EG4 doesn't report it"};
+const SRC = {wifi:["", "Wi-Fi · live from the inverter"], cloud:["wait", "EG4 Monitor · read-only"], demo:["", "Demo inverter"]};
+const ico = (name, color) => { const n = el("span", {className:"ico"}); n.style.color = `var(${color})`; n.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`; return n; };
+const tag = (cls, text) => el("span", {className:"tag " + cls, textContent:text});
+const decimals = s => s.step < 1 ? Math.round(-Math.log10(s.step)) : 0;
+function fmtVal(s, v){
+  if(v === null || v === undefined) return "-";
+  if(s.kind === "switch") return v ? "On" : "Off";
+  if(s.kind === "select"){ const o = s.options.find(o => o[0] === v); return o ? o[1] : `Unknown (${v})`; }
+  if(s.kind === "window") return v === "00:00-00:00" ? "Off" : v.replace("-", " to ");
+  return `${Number(v).toFixed(decimals(s))} ${s.unit}`.trim();
+}
+const sameVal = (s, a, b) => s.kind === "number" ? Math.abs(Number(a) - Number(b)) < s.step / 2 : a === b;
+function setPending(s, v){
+  if(sameVal(s, v, s.value)) delete invPending[s.key]; else invPending[s.key] = v;
+  const row = document.querySelector(`.srow[data-key="${s.key}"]`);
+  if(row) row.classList.toggle("changed", s.key in invPending);
+  renderInvBar();
+}
+function renderInvBar(){
+  const n = Object.keys(invPending).length;
+  $("#invBar").classList.toggle("hidden", !n);
+  $("#invCount").textContent = `${n} change${n === 1 ? "" : "s"} not applied yet`;
+}
+function control(s, editable){
+  const cur = s.key in invPending ? invPending[s.key] : s.value;
+  if(!editable || s.value === null) return el("span", {className:"sval", textContent:fmtVal(s, s.value)});
+  const id = "inv_" + s.key;
+  if(s.kind === "switch"){
+    const i = el("input", {type:"checkbox", checked:!!cur, id, onchange:() => setPending(s, i.checked)});
+    i.setAttribute("aria-label", s.label);
+    return el("label", {className:"tgl"}, i, el("span"));
+  }
+  if(s.kind === "select"){
+    const sel = el("select", {id, onchange:() => setPending(s, Number(sel.value))}, ...s.options.map(([v, t]) => el("option", {value:String(v), textContent:t})));
+    if(!s.options.some(o => o[0] === cur)) sel.prepend(el("option", {value:String(cur), textContent:`Unknown (${cur})`}));
+    sel.value = String(cur); sel.setAttribute("aria-label", s.label);
+    return sel;
+  }
+  if(s.kind === "window"){
+    const [a0, b0] = cur.split("-");
+    const a = el("input", {type:"time", value:a0, step:60}), b = el("input", {type:"time", value:b0, step:60});
+    a.setAttribute("aria-label", s.label + " start"); b.setAttribute("aria-label", s.label + " end");
+    const upd = () => setPending(s, `${a.value || "00:00"}-${b.value || "00:00"}`);
+    a.onchange = b.onchange = upd;
+    return el("span", {className:"row", style:"gap:6px"}, a, el("span", {className:"u", textContent:"to"}), b,
+      el("button", {type:"button", className:"x", textContent:"Off", title:"Turn this window off", onclick:() => { a.value = b.value = "00:00"; upd(); }}));
+  }
+  const i = el("input", {type:"number", value:Number(cur).toFixed(decimals(s)), step:String(s.step), id, inputMode:"decimal"});
+  if(s.lo !== null) i.min = s.lo; if(s.hi !== null) i.max = s.hi;
+  i.setAttribute("aria-label", s.label);
+  i.onchange = () => setPending(s, i.value === "" ? s.value : Number(i.value));
+  return el("span", {className:"row", style:"gap:6px"}, i, el("span", {className:"u", textContent:s.unit}));
+}
+function settingRow(s){
+  const editable = inv.can_write && s.unlocked;
+  const name = el("div", {className:"sname"}, s.label);
+  if(!s.writable) name.append(tag("", "Read-only"));
+  else if(s.status === "verified") name.append(tag("ok", "Verified on your inverter"));
+  else if(s.status === "match") name.append(tag("ok", "Checked with EG4"));
+  else if(s.status === "mismatch") name.append(tag("bad", `Locked: EG4 shows ${s.cloud_text}`));
+  else if(LOCKED[s.status]) name.append(tag("warn", LOCKED[s.status]));
+  if(s.risk === "danger") name.append(tag("bad", "Installer setting")); else if(s.risk === "caution") name.append(tag("warn", "Careful"));
+  const where = `register ${s.regs.join(" and ")}` + (s.bit !== null ? (s.width > 1 ? `, bits ${s.bit}-${s.bit + s.width - 1}` : `, bit ${s.bit}`) : "");
+  const range = s.kind === "number" && s.lo !== null ? ` · range ${fmtVal(s, s.lo)} to ${fmtVal(s, s.hi)}` : "";
+  const more = el("details", {className:"smore"}, el("summary", {textContent:"Details"}),
+    el("div", {textContent:`EG4 name: ${s.key} · ${where}${range}` + (s.cloud_text && s.status !== "mismatch" ? ` · EG4 shows ${s.cloud_text}` : "")}));
+  const row = el("div", {className:"srow" + (s.key in invPending ? " changed" : "")},
+    el("div", {}, name, el("p", {className:"shelp", textContent:s.help}), more), el("div", {className:"sctl"}, control(s, editable)));
+  row.dataset.key = s.key;
+  row.dataset.text = (s.label + " " + s.help + " " + s.key).toLowerCase();
+  return row;
+}
+function renderCheck(){
+  const box = $("#invCheck"), c = inv.check, n = c.counts || {}, total = Object.values(n).reduce((a, b) => a + b, 0);
+  const head = el("div", {className:"chead"}, ico("lock", "--home"), el("h2", {textContent:"Safety check"}));
+  let text, btn = null;
+  if(inv.source === "demo") text = "Demo mode: a simulated 6000XP. Every setting can be changed, and nothing reaches a real inverter.";
+  else if(c.running) text = `Checking... ${c.progress || ""}`;
+  else {
+    text = "Settings stay locked until they've been checked: this server reads each one straight from the inverter over Wi-Fi and asks EG4 Monitor for the same setting, and only unlocks the ones where both agree. That catches any setting this page might misread on your model. The few settings verified on your inverter earlier are unlocked already.";
+    if(c.at) text = `Checked ${new Date(c.at * 1000).toLocaleString([], {dateStyle:"medium", timeStyle:"short"})}: ${n.match || 0} of ${total} settings confirmed and unlocked` +
+      (total - (n.match || 0) ? `, ${total - (n.match || 0)} stay locked (marked below).` : ".") + " Run it again after a firmware update.";
+    if(c.error) text = c.error + " " + text;
+    if(inv.admin){
+      const missing = !inv.cloud && !inv.dongle ? "the EG4 login and the Wi-Fi dongle" : !inv.cloud ? "the EG4 login" : !inv.dongle ? "the Wi-Fi dongle" : "";
+      btn = missing ? el("p", {className:"note", textContent:`The check needs ${missing} (Settings).`})
+        : el("button", {className:"btn primary", type:"button", textContent:c.at ? "Check again" : "Check with EG4 Monitor", onclick:() => guard(startCheck)});
+    }
+  }
+  box.replaceChildren(head, el("p", {textContent:text}), ...(btn ? [btn] : []));
+}
+function renderInv(){
+  if(!inv) return;
+  const [dot, label] = SRC[inv.source] || ["off", "Not connected"];
+  $("#invDot").className = dot; $("#invSrc").textContent = label;
+  $("#invRead").textContent = inv.read_at ? "Read " + new Date(inv.read_at * 1000).toLocaleTimeString([], {hour:"numeric", minute:"2-digit", second:"2-digit"}) : "";
+  const msgs = [];
+  if(inv.error) msgs.push(inv.error);
+  if(inv.source === "cloud") msgs.push("These are EG4 Monitor's values, read-only: changes go over the Wi-Fi dongle, which can't be reached right now.");
+  if(!inv.admin) msgs.push(`You can look, but only ${inv.admin_group || "admins"} can change settings.`);
+  $("#invBanner").textContent = msgs.join(" ");
+  $("#invBanner").className = "banner" + (msgs.length ? (inv.source ? " warn" : "") : " hidden");
+  renderCheck();
+  const groups = inv.groups.map(g => {
+    const rows = inv.settings.filter(s => s.group === g.id);
+    const [icon, color] = GICON[g.id] || ["chip", "--dim"];
+    const card = el("section", {className:"card", id:"g-" + g.id},
+      el("div", {className:"chead"}, ico(icon, color), el("h2", {textContent:g.title})), el("p", {className:"gintro", textContent:g.intro}), ...rows.map(settingRow));
+    return card;
+  });
+  $("#invGroups").replaceChildren(...groups);
+  $("#invNav").replaceChildren(...inv.groups.map(g => el("a", {href:"#inverter", textContent:g.title,
+    onclick:e => { e.preventDefault(); $("#g-" + g.id).scrollIntoView({behavior:"smooth"}); }})));
+  filterInv();
+  $("#invLog").replaceChildren(...(inv.changes.length ? inv.changes.map(c => el("li", {},
+      el("b", {textContent:c.label}), ": " + c.before + " → " + c.after,
+      el("time", {textContent:new Date(c.t * 1000).toLocaleString([], {dateStyle:"medium", timeStyle:"short"}) + (c.user ? " · " + c.user : "") + (c.demo ? " · demo" : "")})))
+    : [el("li", {className:"dim", textContent:"No changes made from this page yet."})]));
+  renderInvBar();
+}
+function filterInv(){
+  const q = $("#invSearch").value.trim().toLowerCase();
+  document.querySelectorAll("#invGroups .card").forEach(card => {
+    let any = false;
+    card.querySelectorAll(".srow").forEach(r => { const hit = !q || r.dataset.text.includes(q); r.classList.toggle("hidden", !hit); any ||= hit; });
+    card.classList.toggle("hidden", !any);
+  });
+}
+$("#invSearch").oninput = filterInv;
+async function loadInv(fresh){
+  if(!inv) $("#invSrc").textContent = "Reading the inverter...";
+  inv = await api("/api/inverter" + (fresh ? "?fresh=1" : ""));
+  renderInv();
+  clearTimeout(invPoll);
+  if(inv.check.running) invPoll = setTimeout(() => guard(pollCheck), 1500);
+}
+async function pollCheck(){
+  if(location.hash !== "#inverter") return;
+  inv = await api("/api/inverter"); renderInv();
+  if(inv.check.running) invPoll = setTimeout(() => guard(pollCheck), 1500);
+  else toast(inv.check.error || "Check finished", !!inv.check.error);
+}
+async function startCheck(){
+  await api("/api/inverter/check", {method:"POST"});
+  inv.check = {...inv.check, running:true, progress:"Starting"}; renderCheck();
+  invPoll = setTimeout(() => guard(pollCheck), 1500);
+}
+$("#invReload").onclick = () => guard(() => loadInv(true));
+$("#invDiscard").onclick = () => { invPending = {}; renderInv(); };
+$("#invReview").onclick = () => {
+  const items = Object.entries(invPending).map(([k, v]) => [inv.settings.find(s => s.key === k), v]);
+  $("#invDlgList").replaceChildren(...items.map(([s, v]) => el("li", {}, el("b", {textContent:s.label}), el("br"),
+    fmtVal(s, s.value), el("span", {className:"arrow", textContent:"  →  "}), el("b", {textContent:fmtVal(s, v)}))));
+  const danger = items.filter(([s]) => s.risk === "danger");
+  $("#invDanger").classList.toggle("hidden", !danger.length);
+  $("#invDangerText").textContent = danger.map(([s]) => s.label).join(", ") + ": a wrong value can cut power to the house, make the inverter drop or refuse the grid, or disable a safety feature.";
+  $("#invDangerOk").checked = false;
+  $("#invYes").disabled = !!danger.length;
+  $("#invDlg").showModal();
+};
+$("#invDangerOk").onchange = () => { $("#invYes").disabled = !$("#invDangerOk").checked; };
+$("#invNo").onclick = () => $("#invDlg").close();
+$("#invYes").onclick = () => guard(async () => {
+  $("#invYes").disabled = true;
+  try{
+    const r = await api("/api/inverter", {method:"POST", body:{changes:invPending, confirm_danger:$("#invDangerOk").checked}});
+    invPending = {}; inv = r; renderInv(); $("#invDlg").close();
+    toast(r.changed.length ? `Saved: ${r.changed.length} setting${r.changed.length === 1 ? "" : "s"} changed and read back` : "Nothing needed changing");
+  } finally{ $("#invYes").disabled = false; }
+});
+const VIEWS = {inverter:["#invView", "Inverter settings", () => loadInv()], charts:["#chView", "Charts", () => loadCharts()]};
+function showView(){
+  const v = location.hash.slice(1), page = VIEWS[v];
+  for(const [k, [id]] of Object.entries(VIEWS)) $(id).classList.toggle("hidden", k !== v);
+  $("#backBtn").classList.toggle("hidden", !page);
+  $("#invBtn").classList.toggle("hidden", v === "inverter");
+  $("#chBtn").classList.toggle("hidden", v === "charts");
+  $("#topbar .mini").textContent = page ? page[1] : "Solar";
+  document.body.classList.toggle("invopen", !!page);
+  clearTimeout(invPoll); clearInterval(chTimer);
+  if(page){ $("#setupView").classList.add("hidden"); $("#appView").classList.add("hidden"); $("#arrangeBtn").classList.add("hidden"); scrollTo(0, 0); return page[2](); }
+  return refresh().then(drawAll);
+}
+$("#invBtn").onclick = () => { location.hash = "inverter"; };
+addEventListener("hashchange", () => guard(showView));
+
 /* ---------- start ---------- */
 (async () => {
   applyTheme(theme);
   await guard(refresh);
+  if(VIEWS[location.hash.slice(1)]) guard(showView);
   if(st && (st.configured || st.demo)){ await guard(loadHist); await guard(loadLong); loadForecast(); }
   // every 5 s; the state is fetched each time while the dongle is live, else every 30 s like before
   timer = setInterval(() => guard(async () => {

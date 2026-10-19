@@ -5,8 +5,9 @@ The dongle speaks the LuxPower protocol: a small header wrapping Modbus RTU fram
 pylxpweb (https://github.com/joyfulhouse/pylxpweb, MIT: transports/dongle.py, registers/inverter_input.py), which needs
 Python 3.12+, so the few parts needed are written out here, like eg4.py does for the cloud.
 
-Reads input registers (Modbus function 4) and a few holding registers (function 3). The ONE write is stopping a grid charge
-(stop_quick_charge), and it can only touch the four registers EG4's own Stop changes on the owner's 6000XP (see QC_*).
+Reads input registers (Modbus function 4) and holding registers (function 3). Writes (function 6) are stopping a grid charge
+(stop_quick_charge, only the four registers EG4's own Stop changes on the owner's 6000XP, see QC_*), and the inverter
+settings page (write_holding, only the registers inverter_settings.py names, each checked against the echo and read back).
 
 The dongle is found by its MAC address, so a new address from the router doesn't break the link: the IP is looked up in
 the ARP table, after a quick sweep of port 8000 on the local network if it isn't there. Every connection is checked
@@ -67,9 +68,10 @@ def read_request(dongle_sn, inverter_sn, start, count, fn=READ_INPUT):
     return _packet(dongle_sn, bytes([0, fn]) + _sn(inverter_sn) + struct.pack("<HH", start, count))
 
 
-def write_request(dongle_sn, inverter_sn, register, value):
-    """A packet setting one holding register (Modbus function 6). Only the Quick Charge registers are allowed."""
-    if register not in WRITABLE or not 0 <= value <= 0xFFFF:
+def write_request(dongle_sn, inverter_sn, register, value, allowed=WRITABLE):
+    """A packet setting one holding register (Modbus function 6). Only registers in `allowed` (by default the Quick
+    Charge ones) are accepted."""
+    if register not in allowed or not 0 <= value <= 0xFFFF:
         raise LocalError(f"refusing to write register {register}")
     return _packet(dongle_sn, bytes([0, WRITE_SINGLE]) + _sn(inverter_sn) + struct.pack("<HH", register, value))
 
@@ -368,8 +370,8 @@ class Dongle:
         await self.writer.drain()
         return await self._answer(fn, start, count)
 
-    async def _write(self, register, value):
-        self.writer.write(write_request(self.dongle_sn or "0000000000", self.inverter_sn, register, value))
+    async def _write(self, register, value, allowed=WRITABLE):
+        self.writer.write(write_request(self.dongle_sn or "0000000000", self.inverter_sn, register, value, allowed))
         await self.writer.drain()
         got = await self._answer(WRITE_SINGLE, register, None)
         if got != value:
@@ -424,6 +426,45 @@ class Dongle:
                     if attempt == 2 or (isinstance(e, LocalError) and "different dongle" in str(e)):
                         raise LocalError(str(e) or type(e).__name__) from e
 
+
+    async def read_holding(self, blocks):
+        """Holding registers as {register: value}, for [(start, count), ...]. Connects (or reconnects once) as needed."""
+        async with self.lock:
+            for attempt in (1, 2):
+                try:
+                    if not self.connected:
+                        await self.connect()
+                    regs = {}
+                    for start, count in blocks:
+                        for i, v in enumerate(await self._read(start, count, READ_HOLDING)):
+                            regs[start + i] = v
+                    return regs
+                except (OSError, asyncio.TimeoutError, LocalError, asyncio.IncompleteReadError) as e:
+                    await self.close()
+                    if attempt == 2 or (isinstance(e, LocalError) and "different dongle" in str(e)):
+                        raise LocalError(str(e) or type(e).__name__) from e
+
+    async def write_holding(self, want, allowed):
+        """Set holding registers {register: value} (in that order), touching only those that differ and refusing any outside
+        `allowed`. Each write must match the inverter's echo, then every register is read back. Returns {register: (before, after)}."""
+        if any(r not in allowed or not 0 <= v <= 0xFFFF for r, v in want.items()):
+            raise LocalError(f"refusing to write registers {sorted(r for r in want if r not in allowed)}")
+        async with self.lock:
+            if not self.connected:
+                await self.connect()
+            try:
+                before = {r: (await self._read(r, 1, READ_HOLDING))[0] for r in want}
+                for r, v in want.items():
+                    if before[r] != v:
+                        await self._write(r, v, allowed)
+                after = {r: (await self._read(r, 1, READ_HOLDING))[0] for r in want}
+            except (OSError, asyncio.TimeoutError, asyncio.IncompleteReadError) as e:
+                await self.close()
+                raise LocalError(f"the connection to the dongle broke while changing settings: {e or type(e).__name__}") from e
+            if after != want:
+                bad = {r: (want[r], after[r]) for r in want if after[r] != want[r]}
+                raise LocalError(f"the inverter didn't keep every change (register: wanted, has): {bad}")
+            return {r: (before[r], after[r]) for r in want}
 
     async def stop_quick_charge(self, normal=None):
         """Stop a grid charge (EG4 Quick Charge) the way EG4's own Stop does on the 6000XP: clear AC-charge window #3, put
@@ -517,6 +558,11 @@ def norm_live(r, now=None):
         soc=r.get(5, 0) & 0xFF, v_bat=round(r.get(4, 0) / 10, 1), charge=charge, discharge=discharge,
         battery=charge - discharge, grid=grid, inv=inv, load=max(0, load), rectifier=r.get(17, 0),
         v_ac=round(r.get(12, 0) / 10, 1), hz=round(r.get(15, 0) / 100, 2), t_inner=_s16(r.get(64, 0)), t_bat=r.get(67, 0),
+        v_eps=round(r.get(20, 0) / 10, 1), hz_eps=round(r.get(23, 0) / 100, 2),          # the inverter's own output (feeds the house)
+        bus1=round(r.get(38, 0) / 10, 1), bus2=round(r.get(39, 0) / 10, 1),              # DC bus inside the inverter
+        t_rad1=_s16(r.get(65, 0)), t_rad2=_s16(r.get(66, 0)),                            # heatsinks
+        cell_max=round(r.get(101, 0) / 1000, 3) or None, cell_min=round(r.get(102, 0) / 1000, 3) or None,
+        bms_chg_a=round(r.get(81, 0) / 10, 1), bms_dis_a=round(r.get(82, 0) / 10, 1),   # what the battery's BMS allows
         status=_status(pv, charge, discharge, grid, r.get(17, 0)), lost=False, fw="", rating="", device_time="",
         source="local")
 

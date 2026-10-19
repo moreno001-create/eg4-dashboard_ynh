@@ -92,6 +92,14 @@ class EG4Client:
             data["minute"] = int(minute)
         return await self.call("/WManage/web/config/quickCharge/" + ("start" if start else "stop"), data)
 
+    async def read_params(self, sn, start, count):
+        """The inverter's settings (holding registers start..start+count-1) as EG4 decodes them for this model: a flat dict of
+        EG4's parameter names (HOLD_*, FUNC_*, BIT_*) to values. This is what EG4 Monitor's Remote Set page shows. The portal
+        asks the inverter through the dongle, so it takes a few seconds; at most 127 registers per call."""
+        j = await self.call("/WManage/web/maintain/remoteRead/read",
+                            {"inverterSn": sn, "startRegister": start, "pointNumber": count, "autoRetry": "true"})
+        return {k: v for k, v in j.items() if k.isupper() or k.startswith("_")} if isinstance(j, dict) else {}
+
     async def close(self):
         if self.http and not self.http.closed:
             await self.http.close()
@@ -121,7 +129,9 @@ def norm_runtime(rt):
         battery=g("pCharge") - g("pDisCharge"),          # + charging, - discharging
         grid=g("pToUser") - g("pToGrid"),                # + importing, - exporting
         inv=inv, load=load, rectifier=g("prec"),
-        v_ac=_n(rt, "vacr", 10), hz=_n(rt, "fac", 100), t_inner=_n(rt, "tinner"), t_bat=_n(rt, "tBat"),
+        v_ac=_n(rt, "vacr", 10), hz=_n(rt, "fac", 100, 2), t_inner=_n(rt, "tinner"), t_bat=_n(rt, "tBat"),
+        v_eps=_n(rt, "vepsr", 10), hz_eps=_n(rt, "feps", 100, 2), bus1=_n(rt, "vBus1", 10), bus2=_n(rt, "vBus2", 10),
+        t_rad1=_n(rt, "tradiator1"), t_rad2=_n(rt, "tradiator2"),
         status=rt.get("statusText") or "", lost=bool(rt.get("lost")), fw=rt.get("fwCode") or "",
         rating=rt.get("powerRatingText") or "", device_time=rt.get("deviceTime") or "")
 
@@ -204,10 +214,11 @@ class DemoInverter:
         rnd = random.Random(int(t // 600))
         return max(0.0, math.sin(math.pi * (h - 6.5) / 13)) ** 1.3 * rnd.uniform(.75, 1) if 6.5 < h < 19.5 else 0.0
 
-    def history(self, now):
-        """24 h of 1-minute-ish samples (every 5 min) with a simple battery model."""
+    def history(self, now, hours=24):
+        """`hours` of samples (every 5 min, every minute for the last 2 h) with a simple battery model, plus the voltages,
+        temperatures and other readings the real history keeps (server.history_row)."""
         rows, soc = [], 55.0
-        t0 = int(now // 300 * 300) - 86400
+        t0 = int(now // 300 * 300) - int(hours * 3600)
         times = list(range(t0, int(now) - 7200, 300)) + list(range(int((now - 7200) // 60 * 60), int(now) + 1, 60))
         for i, t in enumerate(times):
             step = (t - times[i - 1]) if i else 300
@@ -223,18 +234,32 @@ class DemoInverter:
                 gcharge = min(4000.0, (100 - soc) * 200) if soc < 100 else 0.0
                 charge, grid, discharge = charge + gcharge, grid + gcharge + (discharge if discharge else 0), 0.0
             soc = max(10.0, min(100.0, soc + (charge - discharge) * step / 3600 / 14336 * 100))
+            rnd, sun = random.Random(t * 7), self._sun(t)
+            bat = charge - discharge
+            vb = round(51.4 + soc * .045 + bat / 5000 * .8, 1)
+            vac = round(240 + 2.2 * math.sin(t / 5400) + rnd.uniform(-.6, .6), 1)
+            hz = round(60 + rnd.uniform(-.03, .03), 2)
+            ti = round(29 + load / 450 + pv / 900 + abs(bat) / 1500)
             rows.append(dict(t=t, pv=round(pv), pv1=round(pv * .45), pv2=round(pv) - round(pv * .45), load=round(load), soc=round(soc, 1),
-                             battery=round(charge - discharge), grid=round(grid)))
+                             battery=round(bat), grid=round(grid), inv=round(load),
+                             v1=round(372 + 22 * sun + rnd.uniform(-3, 3), 1) if pv else round(8 * sun, 1),
+                             v2=round(138 + 9 * sun + rnd.uniform(-2, 2), 1) if pv else round(3 * sun, 1),
+                             vb=vb, vac=vac, hz=hz, veps=round(vac - .4, 1), heps=hz,
+                             bus1=round(431 + rnd.uniform(-2.5, 2.5), 1), bus2=round(394 + rnd.uniform(-2.5, 2.5), 1),
+                             ti=ti, tr1=ti - 3, tr2=ti + 1, tb=round(25 + abs(bat) / 1800 + 2 * math.sin(t / 43200), 1),
+                             cmax=round(vb / 16 + .004, 3), cmin=round(vb / 16 - .003, 3),
+                             chg=round(max(0, bat)), dis=round(max(0, -bat)), rec=round(4000 if self.quick and t >= self.quick_since and soc < 100 else 0)))
         return rows
 
     def live(self, now):
         r = self.history(now)[-1]
         p1, p2 = r["pv1"], r["pv2"]
-        strings = [dict(n=1, w=p1, v=386.5 if p1 else 0.0), dict(n=2, w=p2, v=144.3 if p2 else 0.0)]
+        strings = [dict(n=1, w=p1, v=r["v1"]), dict(n=2, w=p2, v=r["v2"])]
         return dict(t=round(now), pv=r["pv"], pv_strings=strings,
-                    soc=round(r["soc"]), v_bat=round(52.4 + r["soc"] / 50, 1), charge=max(0, r["battery"]), discharge=max(0, -r["battery"]),
-                    battery=r["battery"], grid=r["grid"], inv=r["load"], load=r["load"], rectifier=0, v_ac=240.6, hz=60.0,
-                    t_inner=41, t_bat=27, status="Charging from grid (demo)" if self.quick else "PV, Battery (demo)",
+                    soc=round(r["soc"]), v_bat=r["vb"], charge=max(0, r["battery"]), discharge=max(0, -r["battery"]),
+                    battery=r["battery"], grid=r["grid"], inv=r["load"], load=r["load"], rectifier=r["rec"], v_ac=r["vac"], hz=r["hz"],
+                    t_inner=r["ti"], t_bat=r["tb"], v_eps=r["veps"], hz_eps=r["heps"], bus1=r["bus1"], bus2=r["bus2"],
+                    t_rad1=r["tr1"], t_rad2=r["tr2"], cell_max=r["cmax"], cell_min=r["cmin"], bms_chg_a=100.0, bms_dis_a=100.0, status="Charging from grid (demo)" if self.quick else "PV, Battery (demo)",
                     lost=False, fw="FAAB-2525 (demo)", rating="6kW", device_time=datetime.fromtimestamp(now).strftime("%Y-%m-%d %H:%M:%S"))
 
     def energy(self, now):

@@ -6,7 +6,7 @@ id = "eg4solar"
 name = "EG4 Solar"
 description.en = "Dashboard for EG4 solar inverters (6000XP): power flow, battery, history, alerts, grid charging"
 
-version = "1.6~ynh1"
+version = "1.7~ynh1"
 
 maintainers = []
 

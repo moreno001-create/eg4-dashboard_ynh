@@ -4,13 +4,16 @@
 
 Reads an EG4 inverter (built for the 6000XP) in the background, keeps a minute-by-minute history, and serves a dashboard.
 With a Wi-Fi dongle set up, live readings come straight from it on the home network every few seconds (local.py), and the
-EG4 Monitor cloud takes over whenever the dongle can't be reached. History, alerts and grid charging always use the cloud. Read-only except for grid charging ("Quick Charge"), with an optional automatic stop
-at a chosen battery level.
+EG4 Monitor cloud takes over whenever the dongle can't be reached. History, alerts and grid charging always use the cloud. Controls: grid
+charging ("Quick Charge") with an optional automatic stop at a chosen battery level, and the inverter's own settings over Wi-Fi
+(inverter_settings.py; each one locked until checked against EG4 Monitor's decoding of this inverter).
 
 Environment variables (set by the YunoHost package):
     EG4_HOST, EG4_PORT   address to listen on (default 127.0.0.1:8766)
     EG4_DATA_DIR         where settings (incl. the EG4 password, mode 600) and history live (default ./data).
                          Setting it also marks the server as running behind a reverse proxy.
+    EG4_ADMIN_GROUP      only people in this group (the proxy's Remote-Groups header, e.g. Homeport's "admins") may change
+                         inverter settings. Unset: anyone who can open the dashboard may.
 """
 import asyncio
 import json
@@ -32,6 +35,7 @@ from pydantic import BaseModel
 
 import eg4
 import forecast as fc
+import inverter_settings as inv
 import local
 import storm as sw
 
@@ -43,6 +47,8 @@ DATA = Path(os.environ.get("EG4_DATA_DIR") or BASE / "data")
 SETTINGS = DATA / "settings.json"
 HISTORY = DATA / "history.jsonl"
 MONTHS = DATA / "months.json"
+CHANGES = DATA / "changes.jsonl"   # who changed which inverter setting, from what to what
+ADMIN_GROUP = os.environ.get("EG4_ADMIN_GROUP", "").strip()
 LIVE_SECS, SLOW_SECS, EVENT_SECS = 60, 300, 900
 LOCAL_SECS = 5            # live readings from the dongle on the home network
 LOCAL_RETRY_SECS = 60     # after the dongle drops: the cloud fills in, and the dongle is tried again this often
@@ -96,6 +102,13 @@ class State:
     lock = asyncio.Lock()
     wake = asyncio.Event()
     log = []              # dashboard notices (quick-charge actions)
+    inv_regs = None       # the inverter's settings registers, read over Wi-Fi (inverter_settings.blocks())
+    inv_at = 0
+    inv_params = None     # or, without the dongle, EG4 Monitor's decoding of them (read-only)
+    inv_params_at = 0
+    inv_error = None
+    demo_regs = None      # demo mode's settings registers
+    check = dict(running=False, progress="", error=None)   # the check against EG4 Monitor
 
 
 S = State()
@@ -156,6 +169,54 @@ def append_history(row):
     DATA.mkdir(parents=True, exist_ok=True)
     with HISTORY.open("a", encoding="utf-8") as f:
         f.write(json.dumps(row) + "\n")
+
+
+# history row key -> live reading key (short keys keep a year of minutes small); the Charts page reads these
+HIST_KEYS = dict(pv="pv", load="load", soc="soc", battery="battery", grid="grid", inv="inv", vb="v_bat", vac="v_ac", hz="hz",
+                 veps="v_eps", heps="hz_eps", bus1="bus1", bus2="bus2", ti="t_inner", tb="t_bat", tr1="t_rad1", tr2="t_rad2",
+                 chg="charge", dis="discharge", rec="rectifier", cmax="cell_max", cmin="cell_min")
+
+
+def history_row(L):
+    """One minute's row: powers, PV string power and voltage, and the voltages, frequencies and temperatures."""
+    row = dict(t=L["t"], **{k: L.get(src) for k, src in HIST_KEYS.items() if L.get(src) is not None})
+    for s in L["pv_strings"]:
+        row[f"pv{s['n']}"] = s["w"]
+        if s.get("v") is not None:
+            row[f"v{s['n']}"] = s["v"]
+    bank = (S.battery or {}).get("bank") or {}   # cell voltages from the cloud's battery data when the dongle didn't give them
+    for k, src in (("cmax", "cell_max"), ("cmin", "cell_min")):
+        if k not in row and bank.get(src):
+            row[k] = bank[src]
+    return row
+
+
+def downsample(rows, points):
+    """Averages consecutive rows into at most about `points` rows, field by field (a field missing from every row stays out)."""
+    if len(rows) <= points:
+        return rows
+    span = rows[-1]["t"] - rows[0]["t"]
+    size = max(60, span / points)
+    out, bucket, edge = [], [], rows[0]["t"] + size
+    def flush():
+        keys = {k for r in bucket for k in r}
+        row = {}
+        for k in keys:
+            vals = [r[k] for r in bucket if isinstance(r.get(k), (int, float))]
+            if vals:
+                row[k] = round(sum(vals) / len(vals), 3)
+        row["t"] = round(row["t"])
+        out.append(row)
+    for r in rows:
+        if r["t"] >= edge and bucket:
+            flush()
+            bucket = []
+            while edge <= r["t"]:
+                edge += size
+        bucket.append(r)
+    if bucket:
+        flush()
+    return out
 
 
 def prune_history():
@@ -244,8 +305,7 @@ async def poll_once():
     S.last_ok, S.error = now, None
     if now - S.last_hist >= LIVE_SECS - 1:   # the history keeps one row a minute, however often the dongle is read
         S.last_hist = now
-        strings = {f"pv{s['n']}": s["w"] for s in S.live["pv_strings"]}
-        append_history(dict({k: S.live[k] for k in ("t", "pv", "load", "soc", "battery", "grid", "inv")}, **strings))
+        append_history(history_row(S.live))
     if cloud_ok():
         if now - S.last_slow >= SLOW_SECS or S.cloud_energy is None:
             S.last_slow = now
@@ -500,11 +560,13 @@ def connection_payload():
 
 
 @app.get("/api/history")
-async def history(hours: int = 24):
-    hours = max(1, min(hours, 24 * 7))
+async def history(hours: float = 24, points: int = 0):
+    """The minute-by-minute history for the last `hours` (up to 7 days); with `points`, averaged down to about that many rows."""
+    hours = max(0.1, min(hours, 24 * 7))
+    rows = S.demo.history(time.time(), max(24, hours)) if S.settings["demo"] else read_history(hours)
     if S.settings["demo"]:
-        return S.demo.history(time.time())
-    return read_history(hours)
+        rows = [r for r in rows if r["t"] >= time.time() - hours * 3600]
+    return downsample(rows, max(50, min(points, 5000))) if points else rows
 
 
 @app.get("/api/days")
@@ -859,6 +921,237 @@ async def charge(body: Charge):
         raise HTTPException(400, "Duration must be between 1 minute and 12 hours")
     await quick(body.start, body.minutes if body.start else None, body.target if body.start else None)
     return await state()
+
+
+# --------------------------------------------------------------------------- inverter settings (EG4's "Remote Set")
+INV_CACHE_SECS, INV_CLOUD_CACHE_SECS = 15, 120
+
+
+def who(request):
+    """(user, may change settings). With EG4_ADMIN_GROUP set, only that group (from the sign-in proxy) may."""
+    user = request.headers.get("remote-user") or None
+    if not ADMIN_GROUP:
+        return user, True
+    groups = {g.strip() for g in (request.headers.get("remote-groups") or "").split(",")}
+    return user, ADMIN_GROUP in groups
+
+
+def check_results():
+    c = S.settings.get("settings_check") or {}
+    return c if c.get("serial") == S.settings["serial"] else {}
+
+
+def unlocked(s):
+    if not s.writable:
+        return False
+    if S.settings["demo"] or s.verified:
+        return True
+    return (check_results().get("results") or {}).get(s.key, {}).get("status") == "match"
+
+
+async def read_inverter_settings(fresh=False):
+    """The settings registers: demo, else over Wi-Fi, else (read-only) EG4 Monitor's decoding of them."""
+    now = time.time()
+    if S.settings["demo"]:
+        if S.demo_regs is None:
+            S.demo_regs = inv.demo_registers()
+        return "demo"
+    if local_on() and not (S.local_failed_at and now - S.local_failed_at < LOCAL_RETRY_SECS):   # not while the dongle is known down
+        if not fresh and S.inv_regs and now - S.inv_at < INV_CACHE_SECS:
+            return "wifi"
+        try:
+            S.inv_regs, S.inv_at, S.inv_error = await get_dongle().read_holding(inv.blocks()), now, None
+            return "wifi"
+        except local.LocalError as e:
+            S.inv_regs, S.inv_error = None, f"Couldn't read the inverter over Wi-Fi: {e}"
+    elif local_on():
+        S.inv_regs, S.inv_error = None, f"Couldn't read the inverter over Wi-Fi: {S.local_error}"
+    if cloud_ok() and S.settings["serial"]:
+        if fresh or not S.inv_params or now - S.inv_params_at >= INV_CLOUD_CACHE_SECS:
+            try:
+                params = {}
+                for start in (0, 127, 254):
+                    params.update(await eg4_call(lambda c: c.read_params(S.settings["serial"], start, 127)))
+                S.inv_params, S.inv_params_at = params, now
+            except Exception as e:
+                S.inv_error = (S.inv_error + "; " if S.inv_error else "") + f"EG4 Monitor: {e or type(e).__name__}"
+                return None
+        return "cloud"
+    if not S.inv_error:
+        S.inv_error = "Inverter settings need the Wi-Fi dongle (Settings → Wi-Fi dongle) or the EG4 login."
+    return None
+
+
+def read_changes(n=15):
+    try:
+        lines = CHANGES.read_text(encoding="utf-8").splitlines()[-n:]
+    except OSError:
+        return []
+    out = []
+    for l in reversed(lines):
+        try:
+            out.append(json.loads(l))
+        except ValueError:
+            pass
+    return out
+
+
+def inverter_payload(request, source):
+    user, admin = who(request)
+    regs = S.demo_regs if source == "demo" else S.inv_regs if source == "wifi" else None
+    params = S.inv_params if source == "cloud" else None
+    results = (check_results().get("results") or {})
+    rows = []
+    for s in inv.SETTINGS:
+        value = inv.decode(s, regs) if regs else inv.cloud_value(s, params) if params else None
+        r = results.get(s.key) or {}
+        status = "demo" if source == "demo" else "verified" if s.verified else r.get("status", "unchecked")
+        rows.append(dict(key=s.key, label=s.label, group=s.group, help=s.help, kind=s.kind, unit=s.unit, lo=s.lo, hi=s.hi,
+                         step=s.step, options=[[k, v] for k, v in s.options.items()], risk=s.risk, writable=s.writable,
+                         unlocked=unlocked(s), status=status, value=value, text=inv.fmt(s, value),
+                         cloud=r.get("cloud"), cloud_text=inv.fmt(s, r["cloud"]) if r.get("cloud") is not None else None,
+                         regs=list(s.regs), bit=s.bit, width=s.width))
+    c = check_results()
+    counts = {}
+    for r in (c.get("results") or {}).values():
+        counts[r["status"]] = counts.get(r["status"], 0) + 1
+    return dict(source=source, error=None if source in ("demo", "wifi") else S.inv_error,
+                read_at=round(S.inv_at if source == "wifi" else S.inv_params_at if source == "cloud" else time.time()) or None,
+                user=user, admin=admin, can_write=admin and source in ("demo", "wifi"), admin_group=ADMIN_GROUP or None,
+                cloud=cloud_ok(), dongle=local_on(),
+                groups=[dict(id=g, title=t, intro=i) for g, t, i in inv.GROUPS], settings=rows,
+                check=dict(S.check, at=c.get("at"), counts=counts), changes=read_changes())
+
+
+@app.get("/api/inverter")
+async def inverter_settings(request: Request, fresh: bool = False):
+    """Every inverter setting with its current value, explanation, and whether it may be changed here."""
+    return inverter_payload(request, await read_inverter_settings(fresh))
+
+
+class SettingsIn(BaseModel):
+    changes: dict          # {setting key: new value}
+    confirm_danger: bool = False
+
+
+@app.post("/api/inverter")
+async def change_inverter_settings(request: Request, body: SettingsIn):
+    """Change inverter settings over Wi-Fi: validated against the map, written register by register (each checked against
+    the inverter's echo), read back, and logged."""
+    user, admin = who(request)
+    if not admin:
+        raise HTTPException(403, f"Only {ADMIN_GROUP} can change inverter settings")
+    if not body.changes:
+        raise HTTPException(400, "Nothing to change")
+    picked = []
+    for key, value in body.changes.items():
+        s = inv.BY_KEY.get(key)
+        if s is None:
+            raise HTTPException(400, f"Unknown setting {key}")
+        if not unlocked(s):
+            raise HTTPException(400, f"{s.label} is locked until it's been checked against EG4 Monitor")
+        if s.risk == "danger" and not body.confirm_danger:
+            raise HTTPException(400, f"{s.label} needs the extra confirmation")
+        picked.append((s, value))
+    demo = S.settings["demo"]
+    needed = sorted({r for s, _ in picked for r in s.regs})
+    if demo:
+        if S.demo_regs is None:
+            S.demo_regs = inv.demo_registers()
+        current = dict(S.demo_regs)
+    elif not local_on():
+        raise HTTPException(400, "Changing settings goes over the Wi-Fi dongle: set it up in Settings first")
+    else:
+        try:   # fresh, so a shared register's other bits are the inverter's current ones
+            current = await get_dongle().read_holding([(r, 1) for r in needed])
+        except local.LocalError as e:
+            raise HTTPException(502, f"Couldn't read the inverter over Wi-Fi: {e}")
+    work, want = dict(current), {}
+    try:
+        for s, value in picked:
+            upd = inv.encode(s, value, work)
+            work.update(upd)
+            want.update(upd)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    want = {r: v for r, v in want.items() if current.get(r) != v}
+    entries = [dict(key=s.key, label=s.label, before=inv.fmt(s, inv.decode(s, current)), after=inv.fmt(s, inv.decode(s, work)))
+               for s, _ in picked if inv.decode(s, current) != inv.decode(s, work)]
+    if want:
+        if demo:
+            S.demo_regs.update(want)
+        else:
+            try:
+                changed = await get_dongle().write_holding(want, inv.writable_registers())
+            except local.LocalError as e:
+                log.warning("Changing inverter settings failed: %s", e)
+                raise HTTPException(502, f"Couldn't change the settings: {e}")
+            log.info("Inverter settings changed by %s: %s", user or "someone",
+                     {r: f"{a} -> {b}" for r, (a, b) in changed.items() if a != b})
+        now = round(time.time())
+        DATA.mkdir(parents=True, exist_ok=True)
+        with CHANGES.open("a", encoding="utf-8") as f:
+            for e in entries:
+                f.write(json.dumps(dict(e, t=now, user=user, demo=demo or None)) + "\n")
+        notice("Inverter settings changed: " + "; ".join(f"{e['label']} {e['before']} → {e['after']}" for e in entries)
+               + (" (demo)" if demo else ""))
+        S.inv_at = 0
+        S.wake.set()   # the next reading picks up a changed charge window or end voltage
+    out = inverter_payload(request, await read_inverter_settings(fresh=not demo))
+    out["changed"] = entries
+    return out
+
+
+async def run_check():
+    """Compare this map's decoding of the inverter's registers (over Wi-Fi) with EG4 Monitor's own decoding (remoteRead)."""
+    sn = S.settings["serial"]
+    S.check = dict(running=True, progress="Reading the inverter over Wi-Fi", error=None)
+    try:
+        regs = await get_dongle().read_holding(inv.blocks())
+        params = {}
+        for start in (0, 127, 254):
+            S.check["progress"] = f"Asking EG4 Monitor for registers {start}-{start + 126}"
+            params.update(await eg4_call(lambda c: c.read_params(sn, start, 127)))
+        if not params:
+            raise eg4.EG4Error("EG4 Monitor returned no settings for this inverter")
+        res = inv.compare(regs, params)
+        weak = [s for s in inv.SETTINGS if res[s.key]["status"] == "weak"]
+        todo, confirmed = sorted({s.reg for s in weak}), set()
+        for i, r in enumerate(todo):   # 0 = 0 proves little: ask EG4 for that one register to confirm the place
+            S.check["progress"] = f"Confirming settings that read 0 or off ({i + 1} of {len(todo)})"
+            n = 2 if any(s.kind == "window" and s.reg == r for s in weak) else 1
+            try:
+                p = await eg4_call(lambda c: c.read_params(sn, r, n))
+            except eg4.EG4Error as e:
+                log.warning("Settings check, register %s: %s", r, e)
+                continue
+            confirmed |= {s.key for s in weak if s.reg == r and all(k in p for k in s.cloud_keys)}
+            await asyncio.sleep(0.2)
+        res = inv.compare(regs, params, confirmed)
+        S.settings["settings_check"] = dict(at=round(time.time()), serial=sn, results=res)
+        save_json(SETTINGS, S.settings, private=True)
+        S.inv_regs, S.inv_at = regs, time.time()
+        n = sum(r["status"] == "match" for r in res.values())
+        notice(f"Inverter settings checked against EG4 Monitor: {n} of {len(res)} confirmed")
+        S.check = dict(running=False, progress="", error=None)
+    except Exception as e:
+        log.warning("Settings check failed: %r", e)
+        S.check = dict(running=False, progress="", error=f"The check didn't finish: {e or type(e).__name__}")
+
+
+@app.post("/api/inverter/check")
+async def check_inverter_settings(request: Request):
+    _, admin = who(request)
+    if not admin:
+        raise HTTPException(403, f"Only {ADMIN_GROUP} can run the check")
+    if S.settings["demo"]:
+        raise HTTPException(400, "Demo mode has nothing to check")
+    if not (cloud_ok() and local_on()):
+        raise HTTPException(400, "The check needs both the EG4 login and the Wi-Fi dongle: it compares what each says")
+    if not S.check["running"]:
+        S.check = dict(running=True, progress="Starting", error=None)
+        asyncio.create_task(run_check())
+    return dict(check=S.check)
 
 
 if __name__ == "__main__":

@@ -61,6 +61,8 @@ pip3 install -r requirements.txt        # fastapi, uvicorn, aiohttp (Python 3.11
 python3 server.py                       # opens http://127.0.0.1:8766, click "Try demo mode"
 python3 tests/test_server.py            # needs: pip3 install httpx2; runs against a fake EG4 server
 python3 tests/test_local.py             # the Wi-Fi dongle path, against a fake dongle
+python3 tests/test_settings.py          # inverter settings: map, writes, the EG4 check, admin rule
+python3 tests/test_history.py           # charts data: extra readings, history rows, averaging
 ```
 Open `http://127.0.0.1:8766/#battery` (or `#history`, `#alerts`) to land on a tab. Demo data is simulated, so no EG4 account is needed.
 
@@ -74,6 +76,58 @@ Open `http://127.0.0.1:8766/#battery` (or `#history`, `#alerts`) to land on a ta
 - **Theme switch for the water-heater app:** offered, but no answer from the owner yet.
 - **Sibling project:** `moreno001-create/water-heater-server` (private; public install copy `water-heater-server_ynh`) is installed and working on
   the owner's YunoHost server. It has its own `CLAUDE.md`.
+
+## Charts page (added 2026-10-18)
+The owner asked for "a page with all the graphs for voltages from the different systems and wattages". `#charts` view (chart button).
+- **History rows** (`server.history_row`, short keys in `HIST_KEYS`): besides t/pv/load/soc/battery/grid/inv/pv1/pv2, now v1/v2 (string
+  volts), vb, vac, hz, veps/heps (inverter output = house), bus1/bus2 (DC bus), ti/tr1/tr2/tb (inside, heatsinks, battery), chg/dis/rec
+  (charge, discharge, grid charging W), cmax/cmin (cells; from the dongle, else the cloud's battery bank). Older rows lack them.
+- **New live readings:** Wi-Fi input regs 20 (EPS V), 23 (EPS Hz), 38/39 (bus, 0.1 V), 65/66 (heatsinks), 101/102 (cells, mV), 81/82 (BMS
+  current limits, 0.1 A); checked against the owner's captured registers (240.1 V, 59.95 Hz, 434.5/394.7 V, 27/31 C, 3.336/3.332 V,
+  100 A). Cloud: vepsr, feps, vBus1/2, tradiator1/2. Cloud frequencies were being rounded to 0.1 Hz; now 0.01.
+- **`GET /api/history?hours=&points=`**: up to 168 h; `points` averages buckets field by field (`downsample`). The page asks for 600.
+  Demo history takes `hours` and fills every field.
+- **Page:** `lineChart()` (own y-range, not from zero unless `zero`, gaps over max(15 min, 3 buckets), 0 V/Hz treated as missing via
+  `nz`), sections Power / Solar / Battery / Grid and output / Inverter (`CHARTS`), a now/low/average/high table per chart, currents
+  worked out as W / V (the dongle's own current registers read 0 on this model). Refreshes every minute while open.
+- Tests: `tests/test_history.py` (8). Views are routed by `VIEWS` in index.html (`#charts`, `#inverter`).
+
+## Inverter settings (added 2026-10-18)
+The owner asked for a self-hosted replacement for monitor.eg4electronics.com's control side, run from Homeport, talking to the
+dongle locally, covering **everything EG4 shows** (their choice over "everyday settings only"), with explanations of what each
+option does. This supersedes "monitor-only" below.
+- **`inverter_settings.py`**: 134 settings in 10 groups (`GROUPS`), each a `Setting` (register, bit/width, div, signed, range,
+  options, risk `""|caution|danger`, help text). Kinds: number, switch (one bit), select (whole register or a bit field), window
+  (two registers, start/end packed `hour | minute << 8`), plus read-only info.
+  - **Map sources:** pylxpweb's live probe of an SNA12K-US (12000XP, same off-grid family, device type 54) through EG4's remoteRead
+    (`docs/inverters/SNA12KUS_52XXXXXX68.json`: in a multi-register block the parameter sits at the block's **last** register,
+    e.g. `92-99` = reg 99), pylxpweb's holding map for bit positions, and this project's Quick Charge findings. pylxpweb's
+    18kPV-style entries for regs 68-73 (separate hour/minute) are **wrong for this family**: they're three packed windows.
+  - **Left out on purpose:** bits whose position isn't known (reg 110 `FUNC_GO_TO_OFFGRID`/`BIT_WORKING_MODE`, reg 229/224-226
+    bits, `FUNC_SNA_BAT_DISCHARGE_CONTROL`), battery type (HOLD_MODEL bitfield, regs 0-1), reg 22 (also carries LSP bits),
+    reg 234 (reads 0 on this model). Output voltage/frequency (90/91) are shown read-only: their raw encoding is unclear.
+  - Option labels (output priority, line mode, charge type) come from pylxpweb/EG4 docs; the check proves the raw value matches
+    EG4's, not that the label is right. Settings marked `UNDOC` say so in their help.
+- **Safety check** (`POST /api/inverter/check`, `run_check()`): reads every settings register over Wi-Fi, asks EG4 for
+  remoteRead 0/127/254 (127 each), and `inv.compare()`s this map's decoding with EG4's: `match` (unlocked), `weak` (0/off on both:
+  then a one-register remoteRead must report the key at that register to count as a match), `raw` (EG4 reports the raw number:
+  our scale is wrong), `mismatch`, `missing`. Only `match` and `verified` (window 3 / regs 68-73, reg 120 bits 1-3, reg 159) are
+  writable. Results live in `settings.settings_check` (tied to the serial). Re-run after a firmware update.
+- **Writes** (`POST /api/inverter {changes, confirm_danger}`): Wi-Fi only. Fresh read of the touched registers, `inv.encode()`
+  (range/step check; bit fields keep the register's other bits), then `Dongle.write_holding()`: only registers in
+  `inv.writable_registers()`, only those that differ, each checked against the echo, all read back. Logged to `changes.jsonl`
+  (who from `Remote-User`) and as a notice. Danger settings need `confirm_danger`.
+- **Who:** `EG4_ADMIN_GROUP` (Homeport catalog sets `admins`) means only that group in `Remote-Groups` may change settings or run
+  the check; unset = anyone who can open the app.
+- **Without the dongle** `GET /api/inverter` shows EG4's own values (remoteRead), read-only. Demo mode has simulated registers
+  (`inv.DEMO`).
+- **Page:** sliders button in the top bar → `#inverter` view: safety-check card, search, group chips, one card per group, rows with
+  help, badges (verified / checked / locked + why / careful / installer) and Details (EG4 name, register, range). Edits collect in a
+  bar; "Review and apply" shows before → after.
+- **Not verified on the real inverter yet** (2026-10-18): the Mac was on 192.168.0.x and the dongle (last at 192.168.4.26 on the
+  old eero network) didn't answer there, and no EG4 login is saved on the Mac. Tests: `tests/test_settings.py` (37 checks: map,
+  fake dongle writes, check statuses, admin rule, cloud fallback). **First thing on the real system: run the safety check and
+  look at what stays locked.**
 
 ## Docker image (added 2026-10-18, for Homeport)
 - `Dockerfile` (python:3.12-slim, runs as uid 1000, data in `/data`, listens on 0.0.0.0:8766) and `.dockerignore` (keeps `data/`, with the
@@ -98,10 +152,12 @@ The owner asked for: live power flow, energy history, battery details, alerts an
 | `server.py` | FastAPI app: settings, background `poller()`, history log, month cache, auto-stop, REST API, demo switch |
 | `forecast.py` | Weather (Open-Meteo) and calibrated solar forecast, ZIP lookup (Zippopotam) |
 | `eg4.py` | `EG4Client` (aiohttp), `norm_*` unit conversion, `DemoInverter` (simulated 6000XP + 14.3 kWh bank) |
-| `local.py` | Wi-Fi dongle client (TCP 8000, read-only), finding it by MAC, `norm_live/energy/bank` in the cloud's shapes |
+| `local.py` | Wi-Fi dongle client (TCP 8000), finding it by MAC, `norm_live/energy/bank` in the cloud's shapes, settings reads/writes |
+| `inverter_settings.py` | Inverter settings map, explanations, encode/decode, the compare against EG4 (see "Inverter settings") |
 | `index.html` | Whole UI, vanilla JS + inline SVG. One page of arrangeable cards in CSS columns (power flow, MPPT, battery, sparklines, quick charge, independence, lifetime, solar today, history, inverter, modules, 30 days, 12 months, alerts) + settings dialog. Charts: `areaChart`, `barChart`; flow: `drawFlow` |
 | `manifest.toml`, `scripts/`, `conf/`, `doc/` | YunoHost package (packaging v2, helpers 2.1, YunoHost >= 12). Copied from the water-heater project |
 | `tests/test_server.py` | Runs the real code path against a fake EG4 server on port 8812 |
+| `tests/test_settings.py` | Inverter settings against a fake dongle and a fake EG4 remoteRead |
 
 ## EG4 cloud API (mirrors pylxpweb, MIT, github.com/joyfulhouse/pylxpweb)
 pylxpweb can't be used directly: it needs Python >= 3.12, and YunoHost 12 / Debian 12 has 3.11.
