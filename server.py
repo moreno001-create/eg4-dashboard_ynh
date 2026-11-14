@@ -37,6 +37,7 @@ import eg4
 import forecast as fc
 import inverter_settings as inv
 import local
+import powland
 import storm as sw
 
 HOST = os.environ.get("EG4_HOST", "127.0.0.1")
@@ -48,6 +49,7 @@ SETTINGS = DATA / "settings.json"
 HISTORY = DATA / "history.jsonl"
 MONTHS = DATA / "months.json"
 CHANGES = DATA / "changes.jsonl"   # who changed which inverter setting, from what to what
+ENERGY = DATA / "energy.json"     # the POWLAND's energy totals, counted here from its live readings
 ADMIN_GROUP = os.environ.get("EG4_ADMIN_GROUP", "").strip()
 LIVE_SECS, SLOW_SECS, EVENT_SECS = 60, 300, 900
 LOCAL_SECS = 5            # live readings from the dongle on the home network
@@ -77,7 +79,8 @@ def save_json(path, data, private=False):
 
 class State:
     settings = dict(account="", password="", serial="", demo=False, quick_target=None,
-                    dongle_mac="", dongle_serial="", dongle_ip="")   # the Wi-Fi dongle, found by MAC (local.py)
+                    dongle_mac="", dongle_serial="", dongle_ip="",   # the Wi-Fi dongle, found by MAC (local.py)
+                    powland_ip="", powland_advertise="")             # a POWLAND inverter's Wi-Fi stick (powland.py)
     alerts, alerts_at, alert_error, hazards = [], 0, None, []   # storm watch
     client = None
     demo = eg4.DemoInverter()
@@ -109,6 +112,12 @@ class State:
     inv_error = None
     demo_regs = None      # demo mode's settings registers
     check = dict(running=False, progress="", error=None)   # the check against EG4 Monitor
+    stick = None          # powland.Stick while a POWLAND is set up
+    pl_settings = None    # its settings (powland.norm_settings), read every few minutes
+    pl_ident = None       # brand, serial, build date
+    pl_slow = 0
+    meter = None          # powland energy meter (kWh counted from the live readings)
+    meter_saved = 0
 
 
 S = State()
@@ -124,8 +133,154 @@ def local_on():
     return bool((S.settings.get("dongle_mac") or S.settings.get("dongle_serial")) and S.settings["serial"])
 
 
+def powland_on():
+    """A POWLAND inverter is set up (by its Wi-Fi stick's address). It replaces the EG4 sources while it is."""
+    return bool(S.settings.get("powland_ip"))
+
+
 def configured():
-    return cloud_ok() or local_on()
+    return cloud_ok() or local_on() or powland_on()
+
+
+async def get_stick():
+    st = S.settings
+    k = S.stick
+    if k is None or k.stick_ip != st["powland_ip"] or k.advertise != (st.get("powland_advertise") or "").strip():
+        await drop_stick()
+        S.stick = k = powland.Stick(st["powland_ip"], st.get("powland_advertise") or os.environ.get("POWLAND_ADVERTISE", ""))
+        await k.start()
+    return k
+
+
+async def drop_stick():
+    if S.stick:
+        await S.stick.close()
+    S.stick = None
+
+
+def save_meter(force=False):
+    if S.meter and (force or time.time() - S.meter_saved >= 60):
+        save_json(ENERGY, S.meter)
+        S.meter_saved = time.time()
+
+
+async def read_powland(now):
+    """Live reading (and every few minutes the settings) from the POWLAND through its Wi-Fi stick."""
+    try:
+        k = await get_stick()
+        if not k.connected:
+            await k.wait_connected(12)
+        regs = await k.read_blocks(powland.LIVE_BLOCKS)
+        if 30000 not in regs or 30046 not in regs:
+            raise powland.PowlandError("The inverter didn't send its live readings")
+        if S.pl_ident is None:
+            S.pl_ident = powland.ident(await k.read_blocks(powland.IDENT_BLOCKS))
+        if now - S.pl_slow >= SLOW_SECS or S.pl_settings is None:
+            S.pl_settings = powland.norm_settings(await k.read_blocks(powland.SETTING_BLOCKS))
+            S.pl_slow = now
+    except powland.PowlandError as e:
+        if S.local_error != str(e):
+            log.warning("POWLAND: %s", e)
+        S.local_error = str(e)
+        raise local.LocalError(f"Couldn't read the POWLAND: {e}")
+    if S.local_error:
+        log.info("POWLAND readings back")
+    S.local_error = None
+    L = powland.norm_live(regs, now)
+    ident = S.pl_ident or {}
+    L.update(fw=ident.get("built", ""), serial=ident.get("serial", ""))
+    S.live, S.source = L, "local"
+    if S.meter is None:
+        S.meter = load_json(ENERGY, None) or powland.new_meter()
+    powland.meter_add(S.meter, L, now)
+    save_meter()
+    S.energy = powland.meter_energy(S.meter)
+    S.battery = dict(soc=L["soc"], v=L["v_bat"], power=L["battery"], status="", remain_ah=None, full_ah=None, current=L["a_bat"],
+                     count=0, modules=[], bank=dict(v=L["v_bat"], a=L["a_bat"], cell_max=None, cell_min=None, t_max=None, t_min=None, cycles=None))
+    S.events = []
+    q = S.settings.get("pl_quick")
+    if q and (now >= q["until"] or (q.get("full") and L["soc"] >= 100)):
+        try:
+            await pl_quick_stop()
+            notice("Grid charging finished" + (" (battery full)" if now < q["until"] else "") + "; your settings are back")
+        except powland.PowlandError as e:
+            log.warning("Ending the grid charge failed (tried again next reading): %s", e)
+    S.quick = pl_quick_status(now)
+
+
+PL_QUICK_MAX = 12 * 3600   # "until full" stops after this long at the latest
+QUICK_SET = {41000: 1}     # grid charging on this inverter needs the house on the grid: output priority "Grid first"
+
+
+def pl_quick_status(now=None):
+    q = S.settings.get("pl_quick")
+    if not q:
+        return dict(active=False, remain_min=0, status="", until="")
+    now = now or time.time()
+    return dict(active=True, remain_min=0 if q.get("full") else max(0, round((q["until"] - now) / 60)), status="grid charging",
+                until="" if q.get("full") else time.strftime("%H:%M", time.localtime(q["until"])))
+
+
+async def pl_settings_now(k):
+    regs = await k.read_blocks(powland.SETTING_BLOCKS)
+    if 41000 not in regs or 41006 not in regs:
+        raise powland.PowlandError("Couldn't read the operating modes")
+    return regs
+
+
+async def pl_quick_start(minutes):
+    """Charge the battery from the grid now: output "Grid first" (and charging "Solar and grid together" if it was "Solar
+    only") until the time is up; pl_quick_stop puts the owner's settings back."""
+    now = time.time()
+    k = await get_stick()
+    if not k.connected:
+        await k.wait_connected(12)
+    q = S.settings.get("pl_quick")
+    if q is None:
+        cur = await pl_settings_now(k)
+        if cur[41000] not in powland.WRITABLE[41000]:
+            raise powland.PowlandError("The inverter is in Hybrid mode: change that in SmartValue first")
+        want = dict(QUICK_SET)
+        if cur[41006] == 3:   # "Solar only" never lets the grid charge
+            want[41006] = 2
+        restore = {r: cur[r] for r in want}
+        done = []
+        try:
+            for r, v in want.items():
+                if cur[r] != v:
+                    await k.write(r, v)
+                    done.append(r)
+        except powland.PowlandError:
+            for r in done:   # undo what was already changed
+                try:
+                    await k.write(r, restore[r])
+                except powland.PowlandError:
+                    pass
+            raise
+        q = dict(started=now, restore={str(r): v for r, v in restore.items()}, set={str(r): v for r, v in want.items()})
+    q.update(full=not minutes, until=now + (minutes * 60 if minutes else PL_QUICK_MAX))
+    S.settings["pl_quick"] = q
+    save_json(SETTINGS, S.settings, private=True)
+    S.pl_slow = 0   # the settings page shows the new modes on the next reading
+    S.quick = pl_quick_status(now)
+
+
+async def pl_quick_stop():
+    """Put the owner's settings back (only those still as the charge left them: a change made meanwhile is kept)."""
+    q = S.settings.get("pl_quick")
+    if q:
+        k = await get_stick()
+        if not k.connected:
+            await k.wait_connected(12)
+        cur = await pl_settings_now(k)
+        for r, v in q["restore"].items():
+            if cur.get(int(r)) == q["set"][r] and cur.get(int(r)) != v:
+                await k.write(int(r), v)
+    S.settings.pop("pl_quick", None)
+    S.settings["quick_target"] = None
+    save_json(SETTINGS, S.settings, private=True)
+    S.pl_slow = 0
+    S.quick = pl_quick_status()
 
 
 def get_dongle():
@@ -174,12 +329,16 @@ def append_history(row):
 # history row key -> live reading key (short keys keep a year of minutes small); the Charts page reads these
 HIST_KEYS = dict(pv="pv", load="load", soc="soc", battery="battery", grid="grid", inv="inv", vb="v_bat", vac="v_ac", hz="hz",
                  veps="v_eps", heps="hz_eps", bus1="bus1", bus2="bus2", ti="t_inner", tb="t_bat", tr1="t_rad1", tr2="t_rad2",
-                 chg="charge", dis="discharge", rec="rectifier", cmax="cell_max", cmin="cell_min")
+                 chg="charge", dis="discharge", rec="rectifier", cmax="cell_max", cmin="cell_min", ab="a_bat", tx="t_extra")
 
 
 def history_row(L):
     """One minute's row: powers, PV string power and voltage, and the voltages, frequencies and temperatures."""
     row = dict(t=L["t"], **{k: L.get(src) for k, src in HIST_KEYS.items() if L.get(src) is not None})
+    for i, leg in enumerate(L.get("legs") or [], 1):   # split-phase output (POWLAND): each leg's power, voltage, current
+        for k in ("w", "v", "a"):
+            if leg.get(k) is not None:
+                row[f"l{i}{k}"] = leg[k]
     for s in L["pv_strings"]:
         row[f"pv{s['n']}"] = s["w"]
         if s.get("v") is not None:
@@ -292,6 +451,14 @@ def merged_battery(cloud):
 async def poll_once():
     """One round: live reading (Wi-Fi dongle first, else the cloud), then the slower cloud data when it's due."""
     sn, now = S.settings["serial"], time.time()
+    if powland_on():
+        await read_powland(now)
+        S.last_ok, S.error = now, None
+        if now - S.last_hist >= LIVE_SECS - 1:
+            S.last_hist = now
+            append_history(history_row(S.live))
+        await auto_stop()
+        return
     if await read_local(now):
         S.source = "local"
     elif cloud_ok():
@@ -335,6 +502,12 @@ async def stop_grid_charge():
     """Stop grid charging: through EG4 Monitor when there's a login, over Wi-Fi when there isn't or EG4 fails.
     Returns how it went ("EG4 Monitor" or "Wi-Fi"); raises if neither worked."""
     errors = []
+    if powland_on():
+        try:
+            await pl_quick_stop()
+            return "Wi-Fi"
+        except powland.PowlandError as e:
+            raise HTTPException(502, f"Couldn't stop the charge: {e}")
     if cloud_ok():
         try:
             await eg4_call(lambda c: c.quick_charge(S.settings["serial"], False))
@@ -358,7 +531,7 @@ async def stop_grid_charge():
 async def auto_stop():
     """Stop grid charging once the battery reaches the chosen level."""
     target = S.settings.get("quick_target")
-    if target and (cloud_ok() or local_on()) and S.quick and S.quick["active"] and S.live and (S.live["soc"] or 0) >= target:
+    if target and (cloud_ok() or local_on() or powland_on()) and S.quick and S.quick["active"] and S.live and (S.live["soc"] or 0) >= target:
         try:
             how = await stop_grid_charge()
         except HTTPException as e:
@@ -465,6 +638,8 @@ async def lifespan(_app):
     task.cancel()
     await drop_client()
     await drop_dongle()
+    await drop_stick()
+    save_meter(force=True)
 
 
 app = FastAPI(title="EG4 dashboard", lifespan=lifespan)
@@ -532,8 +707,8 @@ async def state():
     return dict(configured=configured(), demo=False, account=S.settings["account"], serial=S.settings["serial"],
                 inverters=S.inverters, error=S.error, stale=stale, last_ok=S.last_ok or None,
                 live=S.live, energy=S.energy, battery=S.battery, quick=S.quick, quick_target=S.settings.get("quick_target"),
-                events=S.events, notices=S.log[::-1], hosted=HOSTED, pv_max=PV_MAX, storm=storm_payload(),
-                connection=connection_payload())
+                events=S.events, notices=S.log[::-1], hosted=HOSTED, pv_max=powland.PV_MAX if powland_on() else PV_MAX,
+                storm=storm_payload(), connection=connection_payload(), model=model_payload())
 
 
 @app.get("/api/live")
@@ -555,8 +730,19 @@ async def live_api():
 
 def connection_payload():
     st = S.settings
+    k = S.stick
     return dict(source=S.source, dongle_mac=st.get("dongle_mac", ""), dongle_ip=st.get("dongle_ip", ""),
-                dongle_serial=st.get("dongle_serial", ""), local_error=S.local_error, cloud=cloud_ok())
+                dongle_serial=st.get("dongle_serial", ""), local_error=S.local_error, cloud=cloud_ok(),
+                powland_ip=st.get("powland_ip", ""), powland_advertise=st.get("powland_advertise", ""),
+                powland_connected=bool(k and k.connected), powland_listen=(k.address() if k else "") or "",
+                powland_port=k.port if k else powland.PORT)
+
+
+def model_payload():
+    if powland_on():
+        return dict(kind="powland", name=powland.NAME, split_phase=True, quick_charge=True, ident=S.pl_ident,
+                    grid_charge_a=next((x["value"] for x in S.pl_settings or [] if x["reg"] == 41009), None))
+    return dict(kind="eg4", name="EG4 6000XP", split_phase=False, quick_charge=True, ident=None)
 
 
 @app.get("/api/history")
@@ -574,6 +760,8 @@ async def days(n: int = 30):
     n = max(7, min(n, 62))
     if S.settings["demo"]:
         return S.demo.days(time.time(), n)
+    if powland_on():
+        return powland_days(n)
     if not cloud_ok():
         raise HTTPException(400, "History comes from EG4 Monitor: add the EG4 login in Settings")
     cut = (date.today() - timedelta(days=n - 1)).isoformat()
@@ -590,6 +778,10 @@ async def months():
         by = {}
         for r in rows:
             by.setdefault(r["date"][:7], []).append(r)
+    elif powland_on():
+        by = {}
+        for r in powland_days(400):
+            by.setdefault(r["date"][:7], []).append(r)
     else:
         if not cloud_ok():
             raise HTTPException(400, "History comes from EG4 Monitor: add the EG4 login in Settings")
@@ -601,11 +793,20 @@ async def months():
     return sorted(out, key=lambda r: r["month"])[-12:]
 
 
+def powland_days(n):
+    if S.meter is None:
+        S.meter = load_json(ENERGY, None) or powland.new_meter()
+    cut = (date.today() - timedelta(days=n - 1)).isoformat()
+    return [r for r in powland.meter_days(S.meter) if r["date"] >= cut]
+
+
 # --------------------------------------------------------------------------- weather & solar forecast
 async def calibration_days():
     """Recent daily solar production, to calibrate the solar forecast against this system."""
     if S.settings["demo"]:
         return S.demo.days(time.time(), 31)
+    if powland_on():
+        return [r for r in powland_days(32) if r["date"] < date.today().isoformat()]
     if not cloud_ok():
         return []
     cut = (date.today() - timedelta(days=31)).isoformat()
@@ -751,6 +952,46 @@ async def set_dongle(body: DongleIn):
     return await state()
 
 
+class PowlandIn(BaseModel):
+    ip: str = ""          # the Wi-Fi stick's address; empty turns the POWLAND off
+    advertise: str = ""   # optional: this server's address as the stick should reach it (in a container: the host's)
+
+
+@app.post("/api/powland")
+async def set_powland(body: PowlandIn):
+    """Set up (or turn off) a POWLAND inverter. The stick is pointed here and read once before saving."""
+    ip, adv = body.ip.strip(), body.advertise.strip()
+    if ip and not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", ip):
+        raise HTTPException(400, "Type the Wi-Fi stick's IP address, like 192.168.7.87")
+    if adv and not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", adv):
+        raise HTTPException(400, "This server's address should be an IP address, like 192.168.4.62")
+    if not ip:
+        await drop_stick()
+        save_meter(force=True)
+        S.settings.update(powland_ip="", powland_advertise="")
+        S.source = S.local_error = S.live = S.energy = S.battery = None
+    else:
+        await drop_stick()
+        k = powland.Stick(ip, adv or os.environ.get("POWLAND_ADVERTISE", ""))
+        try:
+            await k.start()
+            if not await k.wait_connected(30):
+                raise powland.PowlandError(k.error or f"The stick at {ip} didn't connect to this server ({k.address()}:{k.port}) within 30 seconds")
+            regs = await k.read_blocks(powland.LIVE_BLOCKS[:1])
+            if 30000 not in regs:
+                raise powland.PowlandError("The stick connected, but the inverter didn't answer")
+        except powland.PowlandError as e:
+            await k.close()
+            raise HTTPException(400, str(e))
+        S.stick = k   # keep the connection it made
+        S.settings.update(powland_ip=ip, powland_advertise=adv)
+        S.local_error, S.pl_ident, S.pl_settings, S.last_hist = None, None, None, 0
+    save_json(SETTINGS, S.settings, private=True)
+    S.wake.set()
+    await asyncio.sleep(0.5)
+    return await state()
+
+
 @app.post("/api/refresh")
 async def refresh():
     """Read the inverter now instead of waiting for the next minute."""
@@ -782,6 +1023,19 @@ async def demo(body: Demo):
 async def quick(start, minutes=None, target=None, why=""):
     """Start or stop EG4 Quick Charge (grid charging), with an optional automatic stop at `target` %."""
     S.settings["quick_target"] = target if start else None
+    if powland_on() and not S.settings["demo"]:
+        try:
+            if start:
+                await pl_quick_start(minutes)
+            else:
+                await pl_quick_stop()
+        except powland.PowlandError as e:
+            raise HTTPException(502, f"Couldn't {'start' if start else 'stop'} the charge: {e}")
+        S.settings["quick_target"] = target if start else None
+        save_json(SETTINGS, S.settings, private=True)
+        notice(why or (("Grid charging started" + (f" for {minutes} min" if minutes else " until the battery is full")
+                        + (f", stops at {target}%" if target else "")) if start else "Grid charging stopped; your settings are back"))
+        return
     if S.settings["demo"]:
         S.demo.quick, S.demo.quick_since = start, time.time()
         S.demo.quick_until = time.time() + minutes * 60 if minutes else 0
@@ -1026,7 +1280,97 @@ def inverter_payload(request, source):
 @app.get("/api/inverter")
 async def inverter_settings(request: Request, fresh: bool = False):
     """Every inverter setting with its current value, explanation, and whether it may be changed here."""
+    if powland_on() and not S.settings["demo"]:
+        return await powland_inverter_payload(request, fresh)
     return inverter_payload(request, await read_inverter_settings(fresh))
+
+
+async def powland_inverter_payload(request, fresh):
+    """The POWLAND's settings, read-only (in the shape the settings page draws)."""
+    user, admin = who(request)
+    error = None
+    if fresh or S.pl_settings is None:
+        try:
+            k = await get_stick()
+            if not k.connected:
+                await k.wait_connected(12)
+            S.pl_settings, S.pl_slow = powland.norm_settings(await k.read_blocks(powland.SETTING_BLOCKS)), time.time()
+        except powland.PowlandError as e:
+            error = f"Couldn't read the POWLAND's settings: {e}"
+    rows = [dict(key=pl_key(x), label=x["label"], group=x["group"], help=x["help"], kind=x["kind"], unit=x["unit"],
+                 lo=x.get("lo"), hi=x.get("hi"), step=x["step"], options=x["options"], option_help=x["option_help"], risk=x["risk"],
+                 writable=x["writable"], unlocked=x["writable"], status="powland", value=x["value"], text=powland.fmt(x, x["value"]),
+                 cloud=None, cloud_text=None, regs=[x["reg"]], bit=None, width=1)
+            for x in S.pl_settings or []]
+    return dict(source="powland" if S.pl_settings else None, error=error, read_at=round(S.pl_slow) or None, user=user, admin=admin,
+                can_write=admin and bool(S.pl_settings), admin_group=ADMIN_GROUP or None, cloud=False, dongle=False,
+                groups=[dict(id=g, title=t, intro=i) for g, t, i in powland.GROUPS], settings=rows,
+                check=dict(running=False, progress="", error=None, at=None, counts={}), changes=read_changes())
+
+
+def pl_key(x):
+    return f"{x['name'] or 'r'}_{x['reg']}"   # SmartValue names repeat (two BattEodVolt), so the register makes it unique
+
+
+async def change_powland_settings(request, body):
+    """Change the POWLAND's operating modes or switch levels: fresh read, one register at a time (each echo checked), read
+    back, logged. Only what powland.WRITABLE allows."""
+    user, admin = who(request)
+    if not admin:
+        raise HTTPException(403, f"Only {ADMIN_GROUP} can change inverter settings")
+    if not body.changes:
+        raise HTTPException(400, "Nothing to change")
+    try:
+        k = await get_stick()
+        if not k.connected:
+            await k.wait_connected(12)
+        current = powland.norm_settings(await k.read_blocks(powland.SETTING_BLOCKS))
+    except powland.PowlandError as e:
+        raise HTTPException(502, f"Couldn't read the POWLAND: {e}")
+    by_key = {pl_key(x): x for x in current}
+    want = []
+    for key, value in body.changes.items():
+        x = by_key.get(key)
+        if x is None:
+            raise HTTPException(400, f"Unknown setting {key}")
+        if x["risk"] == "danger" and not body.confirm_danger:
+            raise HTTPException(400, f"{x['label']} needs the extra confirmation")
+        try:
+            raw = powland.encode(x, value)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        if raw != x["value"]:
+            want.append((x, raw))
+    entries, failed = [], None
+    for x, raw in want:
+        try:
+            await k.write(x["reg"], raw)
+        except powland.PowlandError as e:
+            failed = f"{x['label']}: {e}"
+            break
+        entries.append(dict(key=pl_key(x), label=x["label"], before=powland.fmt(x, x["value"]), after=powland.fmt(x, raw), reg=x["reg"], raw=raw))
+    try:
+        S.pl_settings, S.pl_slow = powland.norm_settings(await k.read_blocks(powland.SETTING_BLOCKS)), time.time()
+    except powland.PowlandError as e:
+        failed = failed or f"Couldn't read the settings back: {e}"
+    back = {x["reg"]: x["value"] for x in S.pl_settings or []}
+    for e in entries:
+        if back.get(e["reg"]) != e["raw"]:
+            failed = failed or f"{e['label']}: the inverter reads {back.get(e['reg'])} after the change, not {e['raw']}"
+    if entries:
+        now = round(time.time())
+        DATA.mkdir(parents=True, exist_ok=True)
+        with CHANGES.open("a", encoding="utf-8") as f:
+            for e in entries:
+                f.write(json.dumps(dict(key=e["key"], label=e["label"], before=e["before"], after=e["after"], t=now, user=user)) + "\n")
+        log.info("POWLAND settings changed by %s: %s", user or "someone", {e["reg"]: f"{e['before']} -> {e['after']}" for e in entries})
+        notice("Inverter settings changed: " + "; ".join(f"{e['label']} {e['before']} → {e['after']}" for e in entries))
+        S.wake.set()
+    if failed:
+        raise HTTPException(400, failed + (f" (changed before that: {', '.join(e['label'] for e in entries)})" if entries else ""))
+    out = await powland_inverter_payload(request, False)
+    out["changed"] = [dict(key=e["key"], label=e["label"], before=e["before"], after=e["after"]) for e in entries]
+    return out
 
 
 class SettingsIn(BaseModel):
@@ -1039,6 +1383,8 @@ async def change_inverter_settings(request: Request, body: SettingsIn):
     """Change inverter settings over Wi-Fi: validated against the map, written register by register (each checked against
     the inverter's echo), read back, and logged."""
     user, admin = who(request)
+    if powland_on() and not S.settings["demo"]:
+        return await change_powland_settings(request, body)
     if not admin:
         raise HTTPException(403, f"Only {ADMIN_GROUP} can change inverter settings")
     if not body.changes:
@@ -1144,6 +1490,8 @@ async def check_inverter_settings(request: Request):
     _, admin = who(request)
     if not admin:
         raise HTTPException(403, f"Only {ADMIN_GROUP} can run the check")
+    if powland_on() and not S.settings["demo"]:
+        raise HTTPException(400, "The check against EG4 Monitor is for EG4 inverters")
     if S.settings["demo"]:
         raise HTTPException(400, "Demo mode has nothing to check")
     if not (cloud_ok() and local_on()):

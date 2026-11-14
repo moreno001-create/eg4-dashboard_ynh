@@ -193,6 +193,8 @@ body.arranging .chead{padding-right:132px}body.arranging .chead h2{white-space:n
 body.arranging .card{outline:2px dashed var(--dim2);outline-offset:-2px;user-select:none}
 body.arranging .card.off{opacity:.4}
 .card.off{display:none}body.arranging .card.off{display:block}
+.card.na,body.arranging .card.na{display:none}   /* not for this inverter model */
+.legs{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}.legs th,.legs td{padding:7px 4px;text-align:right;border-bottom:1px solid var(--line)}.legs th:first-child,.legs td:first-child{text-align:left}.legs th{font-weight:500;color:var(--dim);font-size:.85em}.legs tr:last-child td{border-bottom:0}
 .card.dragging{position:fixed;z-index:60;pointer-events:none;opacity:.92;box-shadow:0 24px 60px #000a;transform:rotate(1deg);margin:0}
 .card.ph{background:transparent;border:2px dashed var(--home);outline:0!important}
 .card.resizing{outline:2px solid var(--home)!important}
@@ -233,6 +235,9 @@ a.pill{color:var(--ink);text-decoration:none;font-weight:600}
 .invnav a{background:var(--card);border-radius:999px;padding:7px 14px;font-size:14px;font-weight:600;color:var(--ink);text-decoration:none;white-space:nowrap}
 #invGroups{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr));gap:clamp(14px,1.2vw,22px);align-items:start}
 #invGroups .card{scroll-margin-top:80px}
+#g-modes{grid-column:1/-1}   /* operating modes: full width, the option descriptions need room */
+#g-modes .opth{grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}
+.srow > div:first-child:has(.opth){grid-column:1/-1;grid-row:2}
 .gintro{color:var(--dim);font-size:15px;margin:-6px 0 4px}
 .srow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;padding:14px 0;border-top:1px solid var(--line);align-items:start}
 .gintro+.srow{border-top:0}
@@ -240,6 +245,13 @@ a.pill{color:var(--ink);text-decoration:none;font-weight:600}
 .sname{font-weight:600;font-size:16px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
 .sname .tag{margin:0;font-weight:650}
 .shelp{color:var(--dim);font-size:14.5px;margin:4px 0 0;line-height:1.42}
+.opth{list-style:none;margin:10px 0 2px;padding:0;display:grid;gap:6px}
+.opth li{border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:14px;line-height:1.42;color:var(--dim)}
+.opth li b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
+.opth li.cur{border-color:var(--ok);background:color-mix(in srgb, var(--ok) 9%, transparent)}
+.opth li.cur b::after{content:" · current";color:var(--ok);font-weight:500}
+.opth li.pick{border-color:var(--orange);background:color-mix(in srgb, var(--orange) 9%, transparent)}
+.opth li.pick b::after{content:" · chosen, not applied yet";color:var(--orange);font-weight:500}
 .smore{margin-top:6px;font-size:13.5px;color:var(--dim)}.smore summary{cursor:pointer;width:max-content}.smore div{margin-top:4px;line-height:1.5}
 .sctl{display:flex;align-items:center;gap:8px;justify-content:flex-end;min-height:36px;flex-wrap:wrap}
 .sctl input,.sctl select{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
@@ -268,12 +280,19 @@ a.pill{color:var(--ink);text-decoration:none;font-weight:600}
 
 <!-- first-time setup -->
 <div id="setupView" class="setup card hidden">
-  <div class="chead"><span class="ico" style="color:var(--solar)" data-icon="sun"></span><h2>Connect your EG4 inverter</h2></div>
+  <div class="chead"><span class="ico" style="color:var(--solar)" data-icon="sun"></span><h2>Connect your inverter</h2></div>
   <p class="dim small" style="margin-top:0">Sign in with your <b>EG4 Monitor</b> app account. The inverter's Wi-Fi dongle uploads its data there, and this server reads it about once a minute.</p>
   <label class="field"><span>EG4 Monitor email or username</span><input id="suAcct" autocomplete="off"></label>
   <label class="field"><span>Password</span><input id="suPass" type="password" autocomplete="off"></label>
   <div class="row" style="margin-top:16px"><button class="btn primary" id="suSave" type="button">Connect</button><button class="btn" id="suDemo" type="button">Try demo mode</button></div>
   <p class="note">Your EG4 password is saved on this server so it can keep reading the inverter; only the app can read it. Unofficial; not affiliated with EG4.</p>
+  <div class="sec" style="margin-top:18px">
+    <b>Or a POWLAND inverter</b>
+    <p class="dim small" style="margin-top:4px">Type the address of its Wi-Fi stick (the one SmartValue set up). This server asks the stick to connect here too, and reads the inverter every few seconds. SmartValue keeps working.</p>
+    <label class="field"><span>Wi-Fi stick address</span><input id="suPlIp" autocomplete="off" spellcheck="false" placeholder="like 192.168.7.87" inputmode="decimal"></label>
+    <div class="row"><button class="btn primary" id="suPl" type="button">Connect POWLAND</button></div>
+    <p class="note" id="suPlMsg"></p>
+  </div>
 </div>
 
 <main id="appView" class="hidden">
@@ -345,7 +364,7 @@ a.pill{color:var(--ink);text-decoration:none;font-weight:600}
         <div class="row small dim" style="margin:-4px 0 14px">Stop early at <select class="inline" id="qcTarget"><option value="">-</option><option>60</option><option>70</option><option>80</option><option>90</option><option>95</option></select> %</div>
       </div>
       <button class="cta" id="qcBtn" type="button">Start quick charge</button>
-      <p class="note">Charges the battery from the grid right now. It uses grid power.</p>
+      <p class="note" id="qcNote">Charges the battery from the grid right now. It uses grid power.</p>
       <ul class="list" id="notices" style="margin-top:8px"></ul>
     </section>
 
@@ -419,6 +438,12 @@ a.pill{color:var(--ink);text-decoration:none;font-weight:600}
       <div class="kv3" id="invKv"></div>
       <div style="margin-top:14px"><span class="dim small">Status</span><div class="mid" id="invStatus" style="color:var(--ok)">-</div></div>
       <p class="note" id="invMore"></p>
+    </section>
+
+    <section class="card" data-id="legs">
+      <div class="chead"><span class="ico" style="color:var(--home)" data-icon="wave"></span><h2>Split-phase output</h2></div>
+      <table class="legs" id="legTable"></table>
+      <p class="note" id="legNote"></p>
     </section>
 
     <section class="card" data-id="modules">
@@ -499,6 +524,14 @@ a.pill{color:var(--ink);text-decoration:none;font-weight:600}
     <div id="dgFound" class="row hidden" style="flex-wrap:wrap"></div>
     <div class="row"><button class="btn" id="dgFind" type="button">Find on network</button><button class="btn primary" id="dgSave" type="button">Use dongle</button><button class="btn danger" id="dgOff" type="button">Turn off</button></div>
     <p class="note" id="dgMsg"></p>
+  </div>
+  <div class="sec">
+    <b>POWLAND inverter</b>
+    <p class="note" style="margin-top:4px">Reads a POWLAND 12000W through its Wi-Fi stick. The stick is asked to connect to this server too (SmartValue keeps working). While it's set up, it replaces the EG4 readings.</p>
+    <label class="field"><span>Wi-Fi stick address</span><input id="plIp" autocomplete="off" spellcheck="false" placeholder="like 192.168.7.87" inputmode="decimal"></label>
+    <label class="field"><span>This server's address, as the stick reaches it (optional)</span><input id="plAdv" autocomplete="off" spellcheck="false" placeholder="found on its own" inputmode="decimal"></label>
+    <div class="row"><button class="btn primary" id="plSave" type="button">Connect</button><button class="btn danger" id="plOff" type="button">Turn off</button></div>
+    <p class="note" id="plMsg"></p>
   </div>
   <div class="sec"><div class="spread"><span><b>Demo mode</b><br><span class="dim small">A simulated 6000XP to try the dashboard.</span></span><button class="btn" id="stDemo" type="button"></button></div></div>
   <div class="sec row" style="justify-content:flex-end"><button class="btn" id="stClose" type="button">Done</button></div>
@@ -755,13 +788,17 @@ function render(){
   const offline = L && L.lost, stale = st.stale || (!L && st.error);
   $("#chipDot").className = !L ? (st.error ? "off" : "wait") : offline || stale ? "off" : "";
   const C = st.connection || {};
-  $("#chipText").textContent = `${st.demo ? "Demo" : C.source === "local" ? "Wi-Fi" : "EG4 cloud"} · EG4 6000XP`;
+  const M = st.model || {kind:"eg4", name:"EG4 6000XP", quick_charge:true};
+  $("#chipText").textContent = `${st.demo ? "Demo" : C.source === "local" ? "Wi-Fi" : "EG4 cloud"} · ${st.demo ? "EG4 6000XP" : M.name}`;
+  const pl = !st.demo && M.kind === "powland";
+  [["storm", pl], ["modules", pl], ["alerts", pl], ["legs", !pl]].forEach(([id, na]) => { const c = document.querySelector(`.card[data-id="${id}"]`); if(c && c.classList.contains("na") !== na){ c.classList.toggle("na", na); requestAnimationFrame(relayout); } });
   $("#updated").textContent = L ? `Updated ${clock(L.t)}` : st.error ? "" : "Connecting...";
   const open = (st.events || []).filter(e => e.open), msgs = [];
   if(st.error) msgs.push(st.error);
   else if(!st.demo && (C.dongle_mac || C.dongle_serial) && C.local_error && C.source === "cloud") msgs.push(`The Wi-Fi dongle isn't answering (${C.local_error}). Showing EG4 Monitor readings until it's back.`);
   if(offline) msgs.push("EG4 reports the inverter offline: its Wi-Fi dongle has stopped uploading.");
-  else if(st.stale && st.last_ok) msgs.push(`No new data from EG4 since ${clock(st.last_ok)}.`);
+  else if(st.stale && st.last_ok) msgs.push(`No new data from ${pl ? "the POWLAND" : "EG4"} since ${clock(st.last_ok)}.`);
+  if(pl && L && L.grid < -50) msgs.push(`The inverter is sending ${kW(-L.grid)} out to the grid. Check "Where the house gets its power" in Inverter settings, and that SmartValue's OnGridSet is Disable.`);
   open.forEach(e => msgs.push(`${e.type_text || "Alert"} ${e.code}: ${e.text}`));
   const b = $("#banner"); b.classList.toggle("hidden", !msgs.length);
   b.classList.toggle("warn", !st.error && !offline && !open.some(e => e.type === "FAULT"));
@@ -794,7 +831,7 @@ function render(){
   const Tot = E ? E.total : {}, lg = $("#lifeGrid"); lg.replaceChildren();
   [["Solar made", "solar", "--solar"], ["Home used", "used", "--home"], ["From grid", "imported", "--gridIn"], ["Battery discharged", "discharged", "--bat"]]  // no export on this 6000XP
     .forEach(([k, f, c]) => { const [n, u] = kwhParts(Tot[f]); lg.append(el("div", {}, el("span", {textContent:k}), el("b", {style:`color:var(${c})`}, n, el("small", {textContent:u})))); });
-  renderQuick(); renderInverter(); renderModules(); renderAlerts(); renderStorm();
+  renderQuick(); renderInverter(); renderModules(); renderAlerts(); renderStorm(); renderLegs();
 }
 function setBar(id, pct){
   const bar = $(id), f = bar.querySelector(".fill"), k = bar.querySelector(".knob");
@@ -804,7 +841,10 @@ function setBar(id, pct){
 /* ---------- quick charge ---------- */
 document.querySelectorAll("#qcSeg button").forEach(b => b.onclick = () => { qcMinutes = +b.dataset.min; document.querySelectorAll("#qcSeg button").forEach(x => x.classList.toggle("on", x === b)); });
 function renderQuick(){
-  const q = st.quick, active = q && q.active;
+  const q = st.quick, active = q && q.active, M = st.model || {};
+  $("#qcNote").textContent = !st.demo && M.kind === "powland"
+    ? `Charges the battery from the grid right now: the house moves onto the grid and the grid charges the battery${M.grid_charge_a ? ` at up to ${M.grid_charge_a} A (about ${(M.grid_charge_a * 54 / 1000).toFixed(1)} kW)` : ""}, with solar helping in daylight. When it ends, your own settings are put back.`
+    : "Charges the battery from the grid right now. It uses grid power.";
   $("#qcDot").className = active ? "on" : "";
   $("#qcState").textContent = !q ? "Waiting for the inverter..." : active
     ? `Charging${q.remain_min ? ` · ${q.remain_min} min left` : ""}${st.quick_target ? ` · stops at ${st.quick_target}%` : ""}` : "Off";
@@ -815,7 +855,9 @@ function renderQuick(){
 $("#qcBtn").onclick = () => {
   if(st.quick && st.quick.active) return guard(async () => { st = await api("/api/charge", {method:"POST", body:{start:false}}); render(); toast("Quick charge stopped"); });
   const t = $("#qcTarget").value, dur = qcMinutes >= 60 ? `${qcMinutes / 60} hour${qcMinutes === 60 ? "" : "s"}` : `${qcMinutes} minutes`;
-  $("#qcMsg").textContent = `The inverter will charge the battery from the grid ${qcMinutes ? "for " + dur : "until it's full"}${t ? `, or until it reaches ${t}%` : ""}. It uses grid power.`;
+  const pl = !st.demo && st.model && st.model.kind === "powland";
+  $("#qcMsg").textContent = `The inverter will charge the battery from the grid ${qcMinutes ? "for " + dur : "until it's full" + (pl ? " (12 hours at most)" : "")}${t ? `, or until it reaches ${t}%` : ""}. It uses grid power.`
+    + (pl ? " The house runs on the grid meanwhile (\"Where the house gets its power\" is set to Grid first), and your own setting is put back when it ends." : "");
   $("#qcDlg").showModal();
 };
 $("#qcNo").onclick = () => $("#qcDlg").close();
@@ -826,13 +868,29 @@ $("#qcYes").onclick = () => guard(async () => {
 });
 
 /* ---------- inverter, modules, alerts ---------- */
+const tF = c => c == null ? null : Math.round(c * 9 / 5 + 32);   // inverter temperatures are shown in °F (owner's request)
 function renderInverter(){
   const L = st.live, kv = $("#invKv"); kv.replaceChildren();
   const cell = (k, v, u) => kv.append(el("div", {}, el("span", {textContent:k}), el("b", {}, v ?? "-", el("small", {textContent:u}))));
-  cell("Grid", L && L.v_ac != null ? L.v_ac.toFixed(1) : null, "V"); cell("Frequency", L && L.hz != null ? L.hz.toFixed(2) : null, "Hz"); cell("Temperature", L ? L.t_inner : null, "°C");
+  cell("Grid", L && L.v_ac != null ? L.v_ac.toFixed(1) : null, "V"); cell("Frequency", L && L.hz != null ? L.hz.toFixed(2) : null, "Hz"); cell("Temperature", L ? tF(L.t_inner) : null, "°F");
   const s = $("#invStatus"); s.textContent = !L ? "-" : L.lost ? "Offline" : L.status || "Normal";
   s.style.color = !L ? "var(--dim)" : L.lost ? "var(--bad)" : "var(--ok)";
-  $("#invMore").textContent = L ? `Output ${kW(L.inv)} · battery ${L.t_bat ?? "-"}°C · firmware ${L.fw || "-"} · serial ${st.serial}` : "";
+  if(L && L.model) {
+    const temps = [L.t_inner, L.t_extra, L.t_rad1, L.t_rad2].filter(t => t != null).map(tF).join(" / ");
+    $("#invMore").textContent = `Output ${kW(L.load)}${L.load_pct != null ? ` (${L.load_pct}% of 12 kW)` : ""} · DC bus ${L.bus1 ?? "-"} V · temperatures ${temps || "-"}°F · built ${L.fw || "-"} · serial ${L.serial || "-"}`;
+  } else $("#invMore").textContent = L ? `Output ${kW(L.inv)} · battery ${L.t_bat ?? "-"}°C · firmware ${L.fw || "-"} · serial ${st.serial}` : "";
+}
+function renderLegs(){
+  const L = st.live, legs = L && L.legs;
+  if(!legs){ $("#legTable").replaceChildren(); $("#legNote").textContent = "Waiting for the inverter..."; return; }
+  const f = (v, d) => v == null ? "-" : Number(v).toFixed(d);
+  const row = (name, a) => el("tr", {}, el("td", {}, el("b", {textContent:name})), el("td", {textContent:f(a.v, 1) + " V"}), el("td", {textContent:f(a.a, 1) + " A"}),
+    el("td", {textContent:a.w == null ? "-" : kW(a.w)}), el("td", {textContent:a.va == null ? "-" : `${a.va} VA`}), el("td", {textContent:a.pct == null ? "-" : `${a.pct}%`}));
+  const tot = {v:legs[0].v != null && legs[1].v != null ? legs[0].v + legs[1].v : null, a:null, w:L.load, va:L.va, pct:L.load_pct};
+  $("#legTable").replaceChildren(el("thead", {}, el("tr", {}, ...["", "Voltage", "Current", "Power", "Apparent", "Load"].map(h => el("th", {textContent:h})))),
+    el("tbody", {}, row("L1", legs[0]), row("L2", legs[1]), row("Both", tot)));
+  const diff = Math.abs((legs[0].w || 0) - (legs[1].w || 0));
+  $("#legNote").textContent = `Each leg is 120 V to neutral; together they make 240 V. ${diff > 1500 ? `The legs are ${kW(diff)} apart: moving a big load to the lighter leg evens out the inverter's work.` : "The legs are fairly even."} Apparent power (VA) above real power (W) means motors or electronics with a low power factor.`;
 }
 function renderModules(){
   const B = st.battery, t = $("#modTable"), kv = $("#bankKv");
@@ -926,7 +984,7 @@ function drawHouse(L){
   chip("#hcSolar", "Solar panels", wv(F.pv), T.solar != null ? `${T.solar.toFixed(1)} kWh today` : "", F.pv <= 15);
   chip("#hcGrid", "Utility grid", wv(F.imp), F.imp > 15 ? `Importing · ${(T.imported ?? 0).toFixed(1)} kWh today` : `Idle · ${(T.imported ?? 0).toFixed(1)} kWh today`, F.imp <= 15);
   // the 6000XP's own output reads 0 while it passes grid power through, so show its condition instead
-  chip("#hcInv", "Inverter", [L.t_inner != null ? String(L.t_inner) : "-", el("small", {textContent:"°C"})],
+  chip("#hcInv", "Inverter", [L.t_inner != null ? String(tF(L.t_inner)) : "-", el("small", {textContent:"°F"})],
        `${L.lost ? "Offline" : (L.status || "Normal").replace(/^./, c => c.toUpperCase())}${L.inv > 15 ? ` · ${kW(L.inv)} out` : ""}`, false);
   const ind = T.used ? Math.max(0, Math.min(100, Math.round(100 * (1 - (T.imported || 0) / T.used)))) : null;
   chip("#hcMeter", "Independence", [ind != null ? String(ind) : "-", el("small", {textContent:"%"})], "of today's use, off-grid", false);
@@ -1301,8 +1359,27 @@ function fillSettings(){
   fillSerials($("#stSerial"), (st && st.inverters) || [], st && st.serial);
   $("#stDemo").textContent = st && st.demo ? "Leave demo" : "Show demo";
   $("#stForget").classList.toggle("hidden", !st || st.demo || !st.configured);
-  fillDongle();
+  fillDongle(); fillPowland();
 }
+function fillPowland(){
+  const C = (st && st.connection) || {}, on = !!C.powland_ip;
+  $("#plIp").value = C.powland_ip || ""; $("#plAdv").value = C.powland_advertise || "";
+  $("#plOff").classList.toggle("hidden", !on);
+  $("#plMsg").textContent = !on ? "Off." : C.powland_connected && !C.local_error ? `Connected: the stick at ${C.powland_ip} talks to this server (${C.powland_listen}:${C.powland_port}).`
+    : `Waiting for the stick at ${C.powland_ip} to connect to ${C.powland_listen || "this server"}:${C.powland_port}${C.local_error ? ` (${C.local_error})` : ""}.`;
+}
+async function connectPowland(ip, adv, msg){
+  msg.textContent = "Asking the stick to connect here (up to 30 seconds)...";
+  try{ st = await api("/api/powland", {method:"POST", body:{ip, advertise:adv}}); }
+  catch(e){ msg.textContent = e.message; throw e; }
+  msg.textContent = "Connected.";
+}
+$("#plSave").onclick = () => guard(async () => { await connectPowland($("#plIp").value.trim(), $("#plAdv").value.trim(), $("#plMsg")); render(); fillPowland(); toast("Reading the POWLAND"); });
+$("#plOff").onclick = () => guard(async () => {
+  if(!confirm("Stop reading the POWLAND? The energy totals counted so far are kept.")) return;
+  st = await api("/api/powland", {method:"POST", body:{ip:""}}); render(); fillPowland(); toast("POWLAND turned off");
+});
+$("#suPl").onclick = () => guard(async () => { await connectPowland($("#suPlIp").value.trim(), "", $("#suPlMsg")); await refresh(); await loadHist(); await loadLong(); });
 function fillDongle(){
   const C = (st && st.connection) || {};
   const on = !!(C.dongle_mac || C.dongle_serial);
@@ -1366,7 +1443,7 @@ const CHARTS = [
     {id:"power", title:"Power flow", icon:"bolt", color:"--home", unit:"W", zero:true, minSpan:200,
      note:"Battery is above zero while charging and below zero while it powers the house.",
      series:[C("Solar", "--solar", r => r.pv), C("Home", "--home", r => r.load), C("Grid", "--gridIn", r => r.grid, {dash:true}), C("Battery", "--bat", r => r.battery)]},
-    {id:"gridw", title:"Grid use", icon:"wave", color:"--gridIn", unit:"W", zero:true, minSpan:200,
+    {id:"gridw", skip:"powland", title:"Grid use", icon:"wave", color:"--gridIn", unit:"W", zero:true, minSpan:200,
      note:"Grid charging is the part of grid power going into the battery.",
      series:[C("From grid", "--gridIn", r => r.grid, {dash:true}), C("Grid charging", "--orange", r => r.rec)]}]],
   ["Solar", [
@@ -1384,14 +1461,14 @@ const CHARTS = [
     {id:"soc", title:"Battery charge", icon:"battery", color:"--bat", unit:"%", fixed:[0, 100],
      series:[C("Charge", "--bat", r => r.soc)]},
     {id:"bata", title:"Battery current", icon:"battery", color:"--bat", unit:"A", dec:1, zero:true, minSpan:5,
-     note:"Worked out from battery power and voltage: above zero while charging.",
-     series:[C("Current", "--bat", r => amps(r.battery, r.vb))]},
+     note:"Above zero while charging, below zero while the battery powers the house.",
+     series:[C("Current", "--bat", r => r.ab != null ? -r.ab : amps(r.battery, r.vb))]},
     {id:"batw", title:"Battery power", icon:"battery", color:"--bat", unit:"W", zero:true, minSpan:200,
      series:[C("Charging", "--bat", r => r.chg ?? (r.battery > 0 ? r.battery : 0)), C("Discharging", "--life", r => r.dis ?? (r.battery < 0 ? -r.battery : 0), {dash:true})]},
-    {id:"cells", title:"Cell voltages", icon:"stack", color:"--bat", unit:"V", dec:3, minSpan:.02,
+    {id:"cells", skip:"powland", title:"Cell voltages", icon:"stack", color:"--bat", unit:"V", dec:3, minSpan:.02,
      note:"Highest and lowest cell in the bank. A gap that keeps growing means the cells need balancing (charge to 100%).",
      series:[C("Highest cell", "--bat", r => nz(r.cmax)), C("Lowest cell", "--gridIn", r => nz(r.cmin), {dash:true})], spread:true},
-    {id:"temps", title:"Battery temperature", icon:"battery", color:"--bat", unit:"°C", dec:1, minSpan:4,
+    {id:"temps", skip:"powland", title:"Battery temperature", icon:"battery", color:"--bat", unit:"°C", dec:1, minSpan:4,
      series:[C("Battery", "--bat", r => r.tb)]}]],
   ["Grid and output", [
     {id:"acv", title:"AC voltage", icon:"wave", color:"--gridIn", unit:"V", dec:1, minSpan:4,
@@ -1399,13 +1476,24 @@ const CHARTS = [
      series:[C("Grid", "--gridIn", r => nz(r.vac), {dash:true}), C("Output", "--home", r => nz(r.veps))]},
     {id:"hz", title:"Frequency", icon:"wave", color:"--gridIn", unit:"Hz", dec:2, minSpan:.1,
      series:[C("Grid", "--gridIn", r => nz(r.hz), {dash:true}), C("Output", "--home", r => nz(r.heps))]}]],
+  ["Split-phase output", [
+    {id:"legw", only:"powland", title:"Power per leg", icon:"bolt", color:"--home", unit:"W", zero:true, minSpan:200,
+     note:"L1 and L2 are the two 120 V halves of the 240 V output. Big gaps between them mean one leg carries most of the house.",
+     series:[C("L1", "--home", r => r.l1w), C("L2", "--life", r => r.l2w, {dash:true})]},
+    {id:"legv", only:"powland", title:"Voltage per leg", icon:"wave", color:"--home", unit:"V", dec:1, minSpan:4,
+     series:[C("L1", "--home", r => nz(r.l1v)), C("L2", "--life", r => nz(r.l2v), {dash:true})]},
+    {id:"lega", only:"powland", title:"Current per leg", icon:"wave", color:"--home", unit:"A", dec:1, zero:true, minSpan:2,
+     series:[C("L1", "--home", r => r.l1a), C("L2", "--life", r => r.l2a, {dash:true})]}]],
   ["Inverter", [
     {id:"bus", title:"DC bus voltage", icon:"chip", color:"--life", unit:"V", dec:1, minSpan:6,
      note:"The high-voltage link inside the inverter between the solar chargers, the battery converter and the AC side.",
      series:[C("Bus 1", "--life", r => nz(r.bus1)), C("Bus 2", "--pv2", r => nz(r.bus2), {dash:true})]},
-    {id:"itemp", title:"Inverter temperatures", icon:"chip", color:"--orange", unit:"°C", dec:0, minSpan:4,
+    {id:"ptemp", only:"powland", title:"Inverter temperatures", icon:"chip", color:"--orange", unit:"°F", dec:0, minSpan:7,
+     note:"The four temperature sensors the POWLAND reports; which part of the inverter each one sits on isn't known yet. The fans speed up as they rise.",
+     series:[C("Sensor 1", "--orange", r => tF(r.ti)), C("Sensor 2", "--solar", r => tF(r.tx)), C("Sensor 3", "--pv2", r => tF(r.tr1), {dash:true}), C("Sensor 4", "--life", r => tF(r.tr2), {dash:true})]},
+    {id:"itemp", skip:"powland", title:"Inverter temperatures", icon:"chip", color:"--orange", unit:"°F", dec:0, minSpan:7,
      note:"The fans speed up as these rise; the inverter cuts power back if it runs too hot.",
-     series:[C("Inside", "--orange", r => r.ti), C("Heatsink 1", "--solar", r => r.tr1), C("Heatsink 2", "--pv2", r => r.tr2, {dash:true})]}]],
+     series:[C("Inside", "--orange", r => tF(r.ti)), C("Heatsink 1", "--solar", r => tF(r.tr1)), C("Heatsink 2", "--pv2", r => tF(r.tr2), {dash:true})]}]],
 ];
 function niceStep(x){ if(!(x > 0)) return 1; const e = Math.pow(10, Math.floor(Math.log10(x))), f = x / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * e; }
 function fmtU(o, v){ if(v == null || !isFinite(v)) return "-"; return o.unit === "W" ? kW(v) : `${v.toFixed(o.dec || 0)} ${o.unit}`; }
@@ -1476,18 +1564,19 @@ function chartCard(o){
 function renderCharts(){
   const now = Date.now() / 1000, start = now - chHours * 3600, rows = chRows;
   const L = st && (st.demo ? st.live : st.live);
-  const src = st && st.demo ? ["", "Demo"] : st && st.connection && st.connection.source === "local" ? ["", "Wi-Fi · recorded every minute"] : st && st.live ? ["wait", "EG4 Monitor · recorded every minute"] : ["off", "No readings"];
+  const src = st && st.demo ? ["", "Demo"] : st && st.connection && st.connection.source === "local" ? ["", (st.model && st.model.kind === "powland" ? "POWLAND · " : "") + "Wi-Fi · recorded every minute"] : st && st.live ? ["wait", "EG4 Monitor · recorded every minute"] : ["off", "No readings"];
   $("#chDot").className = src[0]; $("#chSrc").textContent = src[1];
   $("#chRead").textContent = chAt ? "Updated " + clock(chAt / 1000) : "";
   const first = rows.length ? rows[0].t : null;
   $("#chHint").textContent = first && first > start + 3600 ? `History starts ${new Date(first * 1000).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"})}. Voltages and temperatures are recorded from this version on.` : "Hover or touch a chart for exact values.";
-  const out = [];
-  CHARTS.forEach(([section, list]) => {
+  const out = [], kind = st && !st.demo && st.model ? st.model.kind : "eg4";
+  const shown = CHARTS.map(([section, list]) => [section, list.filter(o => o.only ? o.only === kind : o.skip !== kind)]).filter(([, list]) => list.length);
+  shown.forEach(([section, list]) => {
     out.push(el("h2", {className:"sect", textContent:section}));
     list.forEach(o => out.push(chartCard(o)));
   });
   $("#chGroups").replaceChildren(...out);
-  CHARTS.forEach(([, list]) => list.forEach(o => {
+  shown.forEach(([, list]) => list.forEach(o => {
     const svg = $("#ch_" + o.id), card = svg.closest(".card");
     const drawn = lineChart(svg, rows, {...o, start, end:now});
     if(!drawn){ svg.closest(".chartbox").replaceWith(el("div", {className:"chempty", textContent:"No readings for this yet in the chosen range. They're recorded once a minute from now on."})); return; }
@@ -1528,7 +1617,7 @@ let inv = null, invPending = {}, invPoll = null;
 const GICON = {charge:["bolt", "--orange"], battery:["battery", "--bat"], discharge:["stack", "--bat"], output:["home", "--home"], windows:["calendar", "--life"],
   generator:["bolt", "--solar"], smartload:["wave", "--gridIn"], functions:["chip", "--dim"], grid:["shield", "--gridIn"], info:["chip", "--dim"]};
 const LOCKED = {unchecked:"Locked: not checked with EG4 yet", weak:"Locked: EG4 couldn't confirm it", raw:"Locked: units differ from EG4's", missing:"Locked: EG4 doesn't report it"};
-const SRC = {wifi:["", "Wi-Fi · live from the inverter"], cloud:["wait", "EG4 Monitor · read-only"], demo:["", "Demo inverter"]};
+const SRC = {wifi:["", "Wi-Fi · live from the inverter"], cloud:["wait", "EG4 Monitor · read-only"], demo:["", "Demo inverter"], powland:["", "Wi-Fi stick · POWLAND"]};
 const ico = (name, color) => { const n = el("span", {className:"ico"}); n.style.color = `var(${color})`; n.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`; return n; };
 const tag = (cls, text) => el("span", {className:"tag " + cls, textContent:text});
 const decimals = s => s.step < 1 ? Math.round(-Math.log10(s.step)) : 0;
@@ -1540,10 +1629,14 @@ function fmtVal(s, v){
   return `${Number(v).toFixed(decimals(s))} ${s.unit}`.trim();
 }
 const sameVal = (s, a, b) => s.kind === "number" ? Math.abs(Number(a) - Number(b)) < s.step / 2 : a === b;
+function markOptions(row, s){
+  const pick = s.key in invPending ? invPending[s.key] : null;
+  row.querySelectorAll(".opth li").forEach(li => { const v = +li.dataset.v; li.classList.toggle("cur", v === s.value); li.classList.toggle("pick", v === pick); });
+}
 function setPending(s, v){
   if(sameVal(s, v, s.value)) delete invPending[s.key]; else invPending[s.key] = v;
   const row = document.querySelector(`.srow[data-key="${s.key}"]`);
-  if(row) row.classList.toggle("changed", s.key in invPending);
+  if(row){ row.classList.toggle("changed", s.key in invPending); markOptions(row, s); }
   renderInvBar();
 }
 function renderInvBar(){
@@ -1593,18 +1686,23 @@ function settingRow(s){
   const where = `register ${s.regs.join(" and ")}` + (s.bit !== null ? (s.width > 1 ? `, bits ${s.bit}-${s.bit + s.width - 1}` : `, bit ${s.bit}`) : "");
   const range = s.kind === "number" && s.lo !== null ? ` · range ${fmtVal(s, s.lo)} to ${fmtVal(s, s.hi)}` : "";
   const more = el("details", {className:"smore"}, el("summary", {textContent:"Details"}),
-    el("div", {textContent:`EG4 name: ${s.key} · ${where}${range}` + (s.cloud_text && s.status !== "mismatch" ? ` · EG4 shows ${s.cloud_text}` : "")}));
+    el("div", {textContent:`${inv.source === "powland" ? "SmartValue name" : "EG4 name"}: ${s.key} · ${where}${range}` + (s.cloud_text && s.status !== "mismatch" ? ` · EG4 shows ${s.cloud_text}` : "")}));
+  const opts = (s.option_help || []).length ? el("ul", {className:"opth"}, ...s.option_help.map(([v, t, d]) => {
+    const li = el("li", {}, el("b", {textContent:t}), d); li.dataset.v = v; return li; })) : null;
   const row = el("div", {className:"srow" + (s.key in invPending ? " changed" : "")},
-    el("div", {}, name, el("p", {className:"shelp", textContent:s.help}), more), el("div", {className:"sctl"}, control(s, editable)));
+    el("div", {}, name, el("p", {className:"shelp", textContent:s.help}), ...(opts ? [opts] : []), more), el("div", {className:"sctl"}, control(s, editable)));
   row.dataset.key = s.key;
+  if(opts) markOptions(row, s);
   row.dataset.text = (s.label + " " + s.help + " " + s.key).toLowerCase();
   return row;
 }
 function renderCheck(){
   const box = $("#invCheck"), c = inv.check, n = c.counts || {}, total = Object.values(n).reduce((a, b) => a + b, 0);
-  const head = el("div", {className:"chead"}, ico("lock", "--home"), el("h2", {textContent:"Safety check"}));
+  const plInv = inv.source === "powland" || (st && st.model && st.model.kind === "powland");
+  const head = el("div", {className:"chead"}, ico("lock", "--home"), el("h2", {textContent:plInv ? "About these settings" : "Safety check"}));
   let text, btn = null;
   if(inv.source === "demo") text = "Demo mode: a simulated 6000XP. Every setting can be changed, and nothing reaches a real inverter.";
+  else if(inv.source === "powland" || (st && st.model && st.model.kind === "powland")) text = "Read straight from the POWLAND through its Wi-Fi stick, and matched against what SmartValue shows. The operating modes and the two battery levels can be changed here: each change is checked by the inverter, read back, and logged below. The rest are read-only; change those in SmartValue.";
   else if(c.running) text = `Checking... ${c.progress || ""}`;
   else {
     text = "Settings stay locked until they've been checked: this server reads each one straight from the inverter over Wi-Fi and asks EG4 Monitor for the same setting, and only unlocks the ones where both agree. That catches any setting this page might misread on your model. The few settings verified on your inverter earlier are unlocked already.";

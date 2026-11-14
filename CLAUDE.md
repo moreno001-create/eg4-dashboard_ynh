@@ -77,6 +77,47 @@ Open `http://127.0.0.1:8766/#battery` (or `#history`, `#alerts`) to land on a ta
 - **Sibling project:** `moreno001-create/water-heater-server` (private; public install copy `water-heater-server_ynh`) is installed and working on
   the owner's YunoHost server. It has its own `CLAUDE.md`.
 
+## POWLAND 12000W (added 2026-11-14)
+The owner replaced the 6000XP with a **POWLAND 12000W** split-phase hybrid (SUNGERY control board, serial ZL-2608201236-00182)
+and chose to adapt this dashboard rather than build a new site. Its Wi-Fi stick is an **Eybond "Wi-Fi Plug Pro"** at
+192.168.7.87 (MAC e8:88:6c:4c:a4:54), set up with the **SmartValue** app.
+- **`powland.py`**: the stick doesn't accept connections; a UDP `set>server=<ip>:8899;` to port 58899 makes it connect
+  *to us* over TCP (SmartValue keeps working). Eybond frames (8-byte header; function 1 heartbeat, function 4 = a Modbus RTU
+  read, slave 1, function 3). Quirks: re-sending the redirect while connected makes it hang up (so only while
+  disconnected); it hangs up on a request within ~1 s of its first heartbeat (`SETTLE_SECS`); at most 64 registers per
+  request, some spans refused (blocks are split and retried).
+- **Writes** (added later on 2026-11-14, owner's request): only `powland.WRITABLE` = output priority 41000 (0 PV, 1 Mains,
+  2 Battery), charger priority 41006 (0 PV priority, 1 Mains priority, 2 SNU, 3 PV only), and the SOC switch points
+  41118/41119. Function 6, echo checked, then the settings block read back; exception 03 means "outside the range the
+  inverter allows" (41119 must be about 20 points above 41118: 25 was refused, 30 accepted with 41118 = 10).
+  **Hybrid output (3) is never offered**: it's the mode that can export, and the owner doesn't want export. Option numbers
+  0/1/3 come from the SRNE layout (the current 2 = Batt / 2 = SNU match SmartValue); check SmartValue after a first change.
+- **Register map**: `doc/powland/REGISTERS.md`, confirmed against SmartValue screenshots taken while `live_log.py` logged.
+  Grid power is 30065/30066 (W per leg, signed), grid current 30059/30062, grid charging current 30004, found during a
+  real grid charge; the page warns if grid power goes negative (export). The inverter's own kWh counters aren't found yet: energy is
+  **counted here** from power × time (`meter_add`, `DATA/energy.json`, days kept for the 30-day / 12-month charts).
+- **Server**: `powland_on()` (setting `powland_ip`, optional `powland_advertise`; env `POWLAND_ADVERTISE`, `POWLAND_PORT`)
+  replaces the EG4 sources entirely while set: `read_powland()` every 5 s, settings every 5 min, identity once.
+  `POST /api/powland {ip, advertise}` connects (waits up to 30 s for the stick) or turns it off (`ip: ""`).
+  `/api/state.model` = {kind: "powland"|"eg4", name, split_phase, quick_charge, ident}. `/api/inverter` serves the
+  POWLAND's 24 settings (`powland_inverter_payload`, operating modes first, each option with its description from manual
+  section 5); `POST /api/inverter` goes to `change_powland_settings` (admins only, logged to changes.jsonl). The EG4 check
+  returns 400.
+- **Grid charging now** (Quick charge card, same `/api/charge` as EG4): the inverter has no "charge now" command, and its
+  own timed charging uses its clock (SmartValue showed it set to 2026-10-16), so `pl_quick_start` writes output priority
+  41000 = 1 "Grid first" (the grid can only charge while the house is on the grid) and, if charging was "Solar only" (3),
+  41006 = 2 for the duration. The plan is saved in `settings.pl_quick` {until, full, restore, set}; `read_powland` ends
+  it when the time is up (or the battery is at 100% for "until full", 12 h at most), `auto_stop` at the target %, and
+  `pl_quick_stop` puts back only the registers still as the charge left them. Hybrid (3) refuses to start.
+- **Page**: setup screen and Settings have a POWLAND section; Storm watch, Battery details and Alerts cards
+  are hidden (`.card.na`) and a **Split-phase output** card (L1/L2 V, A, W, VA, load %) appears; Charts gain per-leg
+  power/voltage/current and the four inverter temperatures (`only:`/`skip:` on chart definitions). **Inverter
+  temperatures are shown in °F** (owner's request, `tF()`), for both models.
+- **Homeport**: the catalog publishes `{{.HostIP}}:8899` and sets `POWLAND_ADVERTISE={{.HostIP}}`, because the stick must
+  reach the host, not the container. Only one server can hold the stick: whichever redirected it last.
+- Tests: `tests/test_powland.py` (35: framing, decoding against the real samples, meter, a fake stick that refuses long
+  blocks and sends stray frames, and the server end to end).
+
 ## Charts page (added 2026-10-18)
 The owner asked for "a page with all the graphs for voltages from the different systems and wattages". `#charts` view (chart button).
 - **History rows** (`server.history_row`, short keys in `HIST_KEYS`): besides t/pv/load/soc/battery/grid/inv/pv1/pv2, now v1/v2 (string

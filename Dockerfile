@@ -10,5 +10,7 @@ ENV EG4_HOST=0.0.0.0 EG4_PORT=8766 EG4_DATA_DIR=/data PYTHONUNBUFFERED=1
 RUN mkdir -p /data && chown 1000:1000 /data
 USER 1000:1000
 EXPOSE 8766
+# A POWLAND inverter's Wi-Fi stick connects in here (publish it on the host's LAN address, and set POWLAND_ADVERTISE to it)
+EXPOSE 8899
 VOLUME /data
 CMD ["python", "server.py"]

@@ -1,6 +1,6 @@
 # EG4 Solar Dashboard
 
-Self-hosted web dashboard for an **EG4 solar inverter** (built for the **6000XP**), packaged as a [YunoHost](https://yunohost.org)
+Self-hosted web dashboard for a solar inverter (built for the **EG4 6000XP**; also reads a **POWLAND 12000W** through its Wi-Fi stick, see `CLAUDE.md`), packaged as a [YunoHost](https://yunohost.org)
 app so you can check your system from anywhere behind YunoHost's login. It reads the same data as the EG4 Monitor app, from
 EG4's cloud. Unofficial; not affiliated with EG4. The cloud API may change without notice.
 
