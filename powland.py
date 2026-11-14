@@ -30,7 +30,8 @@ REDIRECT_PORT = 58899
 # At most 64 registers per request (longer ones get exception 0x0A), and some spans are refused outright (30060x50,
 # 30066x39, 30090x20), so these are shapes the inverter was seen to accept. A refused block is split and retried.
 LIVE_BLOCKS = [(30000, 60), (30060, 40), (30100, 40), (39620, 50)]
-SETTING_BLOCKS = [(41000, 64), (41098, 25)]
+SETTING_BLOCKS = [(41000, 32), (41032, 32), (41098, 25)]   # 41000x64 timed out every time while in Grid first (2026-11-14)
+MODE_BLOCK = [(41000, 8)]   # just the operating modes (41000 output, 41006 charging): what a grid charge needs
 IDENT_BLOCKS = [(51000, 40), (51040, 32)]
 MIN_SPLIT = 10
 REPLY_SECS = 6
@@ -43,6 +44,10 @@ PV_MAX = 12000   # for the MPPT card's bars: the inverter's rating (two 200 A ch
 
 class PowlandError(Exception):
     pass
+
+
+class PowlandTimeout(PowlandError):
+    """The inverter didn't answer a request in time (the link itself is still up)."""
 
 
 def crc16(data):
@@ -219,7 +224,7 @@ class Stick:
                 _fc, body = await asyncio.wait_for(fut, REPLY_SECS)
             except asyncio.TimeoutError:
                 self.waiting.pop(tid, None)
-                raise PowlandError(f"The inverter didn't answer (registers {start}-{start + count - 1})")
+                raise PowlandTimeout(f"The inverter didn't answer (registers {start}-{start + count - 1})")
             return parse_read_reply(body, start, count)
 
     async def write(self, reg, value):
@@ -249,7 +254,12 @@ class Stick:
         todo = list(blocks)
         while todo:
             start, count = todo.pop(0)
-            got = await self.read(start, count)
+            try:
+                got = await self.read(start, count)
+            except PowlandTimeout:
+                if count <= MIN_SPLIT or not self.connected:
+                    raise
+                got = None   # no answer to a long block (seen in Grid first mode): smaller pieces, as for a refused one
             if got:
                 regs.update(got)
             elif count > MIN_SPLIT:   # refused: try it in two halves (some spans hold an address the inverter won't read in a block)

@@ -222,10 +222,16 @@ def pl_quick_status(now=None):
 
 
 async def pl_settings_now(k):
-    regs = await k.read_blocks(powland.SETTING_BLOCKS)
-    if 41000 not in regs or 41006 not in regs:
-        raise powland.PowlandError("Couldn't read the operating modes")
-    return regs
+    """The operating modes, read fresh in one small request (tried twice)."""
+    for attempt in (1, 2):
+        try:
+            regs = await k.read_blocks(powland.MODE_BLOCK)
+            if 41000 in regs and 41006 in regs:
+                return regs
+        except powland.PowlandTimeout:
+            if attempt == 2:
+                raise
+    raise powland.PowlandError("Couldn't read the operating modes")
 
 
 async def pl_quick_start(minutes):
@@ -272,10 +278,14 @@ async def pl_quick_stop():
         k = await get_stick()
         if not k.connected:
             await k.wait_connected(12)
-        cur = await pl_settings_now(k)
+        try:
+            cur = await pl_settings_now(k)
+        except powland.PowlandError as e:   # stopping matters more than knowing: put the settings back without the check
+            log.warning("Stopping the grid charge without reading the modes first (%s)", e)
+            cur = None
         for r, v in q["restore"].items():
-            if cur.get(int(r)) == q["set"][r] and cur.get(int(r)) != v:
-                await k.write(int(r), v)
+            if cur is None or (cur.get(int(r)) == q["set"][r] and cur.get(int(r)) != v):
+                await k.write(int(r), v)   # raises if it fails: the plan is kept, and the next reading tries again
     S.settings.pop("pl_quick", None)
     S.settings["quick_target"] = None
     save_json(SETTINGS, S.settings, private=True)

@@ -89,6 +89,8 @@ results.append(ok([d["date"] for d in days] == ["2026-11-14", "2026-11-15"] and 
 class FakeStick:
     def __init__(self, regs):
         self.regs, self.udp, self.writer, self.redirects, self.requests = regs, None, None, 0, []
+        self.offline = False   # True: ignore redirects (stay disconnected)
+        self.mute = lambda start, count: False   # reads to leave unanswered (the real one went silent on 41000x64 in Grid first)
 
     async def start(self):
         loop = asyncio.get_running_loop()
@@ -98,7 +100,7 @@ class FakeStick:
                 m = re.fullmatch(rb"set>server=([\d.]+):(\d+);", data)
                 if m:
                     fake.redirects += 1
-                    if fake.writer is None:
+                    if fake.writer is None and not fake.offline:
                         asyncio.ensure_future(fake.connect(m[1].decode(), int(m[2])))
         self.udp, _ = await loop.create_datagram_endpoint(P, local_addr=("127.0.0.1", 0))
         return self.udp.get_extra_info("sockname")[1]
@@ -115,6 +117,8 @@ class FakeStick:
                     continue
                 _slave, fn, start, count = struct.unpack(">BBHH", body[:6])
                 self.requests.append((fn, start, count) if fn == 6 else (start, count))
+                if fn == 3 and self.mute(start, count):
+                    continue
                 if fn == 6:   # write one register: count is the value; like the real one, 41119 must be 20 above 41118
                     if start == 41119 and count < self.regs.get(41118, 10) + 20:
                         out = bytes([1, 0x86, 0x03])
@@ -173,6 +177,16 @@ async def stick_tests():
     results.append(ok(len(regs) == 50 and regs[30109] == ALL.get(30109, 0) and (30060, 50) in fake.requests and len(fake.requests) > 1,
                       f"a refused block is split until it reads ({fake.requests})"))
     results.append(ok(await k.read(30000, 70) is None, "more than 64 registers: refused, returns None"))
+    powland.REPLY_SECS = 0.5
+    fake.mute = lambda start, count: start == 41000 and count > 32
+    regs = await k.read_blocks([(41000, 64)])
+    results.append(ok(len(regs) == 64 and regs[41001] == 1200, "a long block that gets no answer is split into smaller reads"))
+    fake.mute = lambda start, count: start <= 41000 < start + count
+    try:
+        await k.read_blocks(powland.MODE_BLOCK); results.append(ok(False, "a small read that gets no answer raises"))
+    except powland.PowlandTimeout:
+        results.append(ok(True, "a small read that gets no answer raises"))
+    fake.mute = lambda start, count: False
     await k.write(41006, 3)
     results.append(ok(fake.regs[41006] == 3 and (await k.read(41006, 1)) == {41006: 3}, "a setting is written (function 6) and reads back"))
     try:
@@ -185,6 +199,7 @@ async def stick_tests():
     except powland.PowlandError:
         results.append(ok(len(fake.requests) == n, "a register outside the allowed list is never sent"))
     fake.regs[41006] = ALL[41006]
+    fake.offline = True
     fake.hang_up()
     await asyncio.sleep(0.2)
     try:
@@ -192,7 +207,8 @@ async def stick_tests():
         results.append(ok(False, "a read after the stick hung up raises"))
     except powland.PowlandError as e:
         results.append(ok(True, f"a read after the stick hung up raises ({e})"))
-    results.append(ok(await k.wait_connected(5) and fake.redirects == 2 and (await k.read(30002, 1)) == {30002: DAY[30002]},
+    fake.offline, redirects = False, fake.redirects
+    results.append(ok(await k.wait_connected(5) and fake.redirects == redirects + 1 and (await k.read(30002, 1)) == {30002: DAY[30002]},
                       "after it hangs up it's redirected again and reconnects"))
     await k.close()
     fake.stop()
@@ -285,6 +301,18 @@ with TestClient(server.app, base_url="http://solar.example.org") as c:
     q = server.S.settings["pl_quick"]
     results.append(ok(q["full"] and 11.9 * 3600 < q["until"] - time.time() <= 12 * 3600 and s["quick"]["active"], "until full: 12 hours at most"))
     c.post("/api/charge", json={"start": False}, headers=H)
+    # the real inverter stopped answering the long settings read while in Grid first: Stop must still work
+    powland.REPLY_SECS = 0.5
+    fake.mute = lambda start, count: fake.regs.get(41000) == 1 and start <= 41000 and start + count > 41032
+    c.post("/api/charge", json={"start": True, "minutes": 30}, headers=H)
+    r = c.post("/api/charge", json={"start": False}, headers=H)
+    results.append(ok(r.status_code == 200 and fake.regs[41000] == 2 and not r.json()["quick"]["active"],
+                      f"Stop works when the inverter won't answer a long settings read in Grid first ({r.status_code} {r.json().get('detail', '')})"))
+    c.post("/api/charge", json={"start": True, "minutes": 30}, headers=H)
+    fake.mute = lambda start, count: fake.regs.get(41000) == 1 and start <= 41000 < start + count   # no settings read at all
+    r = c.post("/api/charge", json={"start": False}, headers=H)
+    results.append(ok(r.status_code == 200 and fake.regs[41000] == 2, f"and even with no settings read at all, Battery first is written back ({r.status_code})"))
+    fake.mute = lambda start, count: False
     fake.regs[41000] = 3
     r = c.post("/api/charge", json={"start": True, "minutes": 30}, headers=H)
     results.append(ok(r.status_code == 502 and "Hybrid" in r.json()["detail"] and fake.regs[41000] == 3, f"in Hybrid mode it won't start ({r.json()['detail']})"))
