@@ -73,7 +73,7 @@ they are, the dashboard counts energy itself from the live power readings (`powl
 | 41002 | 0.01 Hz | OutFreqSet | 60 Hz |
 | 41007 | 0.1 A | MaxChgCurrSet | 250.0 A |
 | 41008 | 0.1 A | ChgCurrByPvSet | 80.0 A |
-| 41009 | 0.1 A | ChgCurrByLineSet | 48.0 A |
+| 41009 | 0.1 A | ChgCurrByLineSet (manual: "Max AC charger current", 0–160 A, default 120 A; changeable on the settings page, 10–160 A) | 48.0 A |
 | 41101 | 0.1 V | CvVolt | 58.4 V |
 | 41102 | 0.1 V | FloatVolt | 58.4 V |
 | 41103 | 0.1 V | (58.5 V, probably battery over-voltage) | guess |

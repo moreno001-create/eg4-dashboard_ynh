@@ -88,7 +88,8 @@ and chose to adapt this dashboard rather than build a new site. Its Wi-Fi stick 
   request, some spans refused (blocks are split and retried).
 - **Writes** (added later on 2026-11-14, owner's request): only `powland.WRITABLE` = output priority 41000 (0 PV, 1 Mains,
   2 Battery), charger priority 41006 (0 PV priority, 1 Mains priority, 2 SNU, 3 PV only), and the SOC switch points
-  41118/41119. Function 6, echo checked, then the settings block read back; exception 03 means "outside the range the
+  41118/41119, and grid charge current 41009 (×0.1 A; page allows whole amps 10–160, the manual's range; `LIMITS`/`SCALE`
+  give number ranges, settings carry `raw` and `div`, compare and log with `raw`). Function 6, echo checked, then the settings block read back; exception 03 means "outside the range the
   inverter allows" (41119 must be about 20 points above 41118: 25 was refused, 30 accepted with 41118 = 10).
   **Hybrid output (3) is never offered**: it's the mode that can export, and the owner doesn't want export. Option numbers
   0/1/3 come from the SRNE layout (the current 2 = Batt / 2 = SNU match SmartValue); check SmartValue after a first change.

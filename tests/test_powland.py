@@ -70,6 +70,11 @@ def refused(x, v):
     except ValueError: return True
 results.append(ok(refused(modes[41000], 3) and refused(modes[41006], 7) and refused(st[41001], 110) and powland.encode(st[41119], 30) == 30,
                   "only offered values and changeable settings are accepted"))
+g = st[41009]
+results.append(ok(g["writable"] and g["risk"] == "caution" and (g["lo"], g["hi"], g["step"]) == (10, 160, 1) and powland.encode(g, 100) == 1000
+                  and powland.encode(g, "60") == 600 and refused(g, 48.5) and refused(g, 161) and powland.encode(g, 160) == 1600 and refused(g, 5) and powland.fmt(g, 480) == "48 A"
+                  and powland.fmt(st[41001], 1200) == "120 V" and powland.fmt(st[41119], 30) == "30 %",
+                  "grid charge current: whole amps 10-160, scaled x10 for the inverter, marked careful"))
 
 # --- 3. the energy meter
 m = powland.new_meter()
@@ -246,8 +251,8 @@ with TestClient(server.app, base_url="http://solar.example.org") as c:
     results.append(ok(s["live"]["serial"] == "ZL-2608201236-00182" and s["model"]["ident"]["brand"] == "SUNGERY", "the serial and build date are read once"))
     results.append(ok(s["energy"]["today"].keys() >= {"solar", "used", "charged"} and s["battery"]["soc"] == DAY[30002], "energy and battery in the dashboard's shapes"))
     inv = c.get("/api/inverter").json()
-    results.append(ok(inv["source"] == "powland" and len(inv["settings"]) == 24 and sum(x["writable"] for x in inv["settings"]) == 4,
-                      f"inverter settings page: the POWLAND's 24 settings, 4 of them changeable ({len(inv['settings'])})"))
+    results.append(ok(inv["source"] == "powland" and len(inv["settings"]) == 24 and sum(x["writable"] for x in inv["settings"]) == 5,
+                      f"inverter settings page: the POWLAND's 24 settings, 5 of them changeable ({len(inv['settings'])})"))
     keys = {x["regs"][0]: x for x in inv["settings"]}
     results.append(ok(inv["can_write"] and keys[41000]["writable"] and keys[41006]["writable"] and keys[41119]["writable"] and not keys[41101]["writable"]
                       and keys[41000]["option_help"] and inv["groups"][0]["id"] == "modes",
@@ -259,6 +264,16 @@ with TestClient(server.app, base_url="http://solar.example.org") as c:
                       f"changes are written, read back and logged ({j.get('changed') or j})"))
     r = c.post("/api/inverter", json={"changes": {keys[41119]["key"]: 25}}, headers=H)
     results.append(ok(r.status_code == 400 and "outside the range" in r.json()["detail"] and fake.regs[41119] == 40, f"the inverter's refusal is passed on ({r.json()['detail']})"))
+    r = c.post("/api/inverter", json={"changes": {keys[41009]["key"]: 100}}, headers=H)
+    j = r.json()
+    results.append(ok(r.status_code == 200 and fake.regs[41009] == 1000 and [(e["before"], e["after"]) for e in j["changed"]] == [("48 A", "100 A")],
+                      f"grid charge current 48 -> 100 A is written as 1000 and read back ({j.get('changed') or j})"))
+    r = c.post("/api/inverter", json={"changes": {keys[41009]["key"]: 200}}, headers=H)
+    results.append(ok(r.status_code == 400 and "10-160 A" in r.json()["detail"] and fake.regs[41009] == 1000, f"above 160 A is refused before writing ({r.json()['detail']})"))
+    r = c.post("/api/inverter", json={"changes": {keys[41009]["key"]: 100}}, headers=H)
+    results.append(ok(r.status_code == 200 and not r.json()["changed"], "setting the same value writes nothing"))
+    c.post("/api/inverter", json={"changes": {keys[41009]["key"]: 48}}, headers=H)
+    results.append(ok(fake.regs[41009] == 480, "and back to 48 A"))
     r = c.post("/api/inverter", json={"changes": {keys[41101]["key"]: 57.6}}, headers=H)
     results.append(ok(r.status_code == 400, f"a read-only setting can't be changed ({r.json()['detail']})"))
     r = c.post("/api/inverter", json={"changes": {keys[41000]["key"]: 3}}, headers=H)

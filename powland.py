@@ -12,7 +12,8 @@ Quirks found on the owner's stick (2026-11-14):
   it isn't connected. A heartbeat right after it connects keeps it from hanging up after a few seconds.
 - Some addresses (30066-30104) time out when read one at a time but answer in a block read.
 
-Writes: only the registers in WRITABLE (the operating modes and the two battery-level switch points), one at a time with
+Writes: only the registers in WRITABLE (the operating modes, the two battery-level switch points
+and the grid charge current), one at a time with
 Modbus function 6, each checked against the inverter's echo and read back. The register map is in doc/powland/REGISTERS.md.
 """
 import asyncio
@@ -424,8 +425,13 @@ MODES = [   # (register, name, label, options, help, risk)
     (41006, "ChgPriority", "How the battery is charged", CHARGE_MODES,
      "Which source charges the battery: solar, the grid, or both.", ""),
 ]
-SOC_WRITABLE = range(5, 101)
-WRITABLE = {41000: {v for v, *_ in OUTPUT_MODES}, 41006: {v for v, *_ in CHARGE_MODES}, 41118: SOC_WRITABLE, 41119: SOC_WRITABLE}
+# Number settings that can be changed: register -> (lowest, highest, step) in the units shown on the page.
+# Grid charge current: whole amps, 10-160 A (the manual's "Max AC charger current" range, default 120 A). The grid
+# breaker and the battery's own charge limit matter more: the charger and the house share the grid inlet.
+LIMITS = {41009: (10, 160, 1), 41118: (5, 100, 1), 41119: (5, 100, 1)}
+SCALE = {41009: 10, 41118: 1, 41119: 1}
+WRITABLE = {41000: {v for v, *_ in OUTPUT_MODES}, 41006: {v for v, *_ in CHARGE_MODES},
+            **{reg: range(lo * SCALE[reg], hi * SCALE[reg] + 1, st * SCALE[reg]) for reg, (lo, hi, st) in LIMITS.items()}}
 
 
 # --------------------------------------------------------------------------- settings
@@ -434,7 +440,10 @@ SETTINGS = [   # (register, name, label, scale, unit, help) -- confirmed against
     (41002, "OutFreqSet", "Output frequency", 100, "Hz", "The AC frequency the inverter makes."),
     (41007, "MaxChgCurrSet", "Maximum charge current", 10, "A", "The most current the battery is charged with, from solar and grid together."),
     (41008, "ChgCurrByPvSet", "Solar charge current", 10, "A", "The most current solar may put into the battery."),
-    (41009, "ChgCurrByLineSet", "Grid charge current", 10, "A", "The most current the grid may put into the battery."),
+    (41009, "ChgCurrByLineSet", "Grid charge current", 10, "A", "The most current the grid may put into the battery. "
+     "This caps grid charging (and Charge now). Battery amps, not grid amps: 48 A is about 2.7 kW, 100 A about 6 kW "
+     "(25 A at 240 V), 160 A about 9.7 kW (40 A at 240 V). The house runs through the same grid inlet while charging, so "
+     "keep the two together under 80% of the inlet breaker (40 A on a 50 A circuit), and within the battery's own charge limit."),
     (41101, "CvVolt", "Bulk (absorption) voltage", 10, "V", "The battery is charged up to this voltage, then held there."),
     (41102, "FloatVolt", "Float voltage", 10, "V", "The voltage the battery is kept at once it's full."),
     (41103, "", "Battery over-voltage (likely)", 10, "V", "Not shown in SmartValue; probably the voltage at which charging stops as a protection."),
@@ -477,15 +486,16 @@ def norm_settings(r):
             options = [[v, t] for v, t, _ in opts]
             if r[reg] not in known:   # hybrid (3) or anything else: shown, not offered
                 options.append([r[reg], "Hybrid (can send power to the grid)" if r[reg] == 3 else f"Unknown ({r[reg]})"])
-            out.append(dict(reg=reg, name=name, label=label, kind="select", value=r[reg], unit="", help=help_, group="modes",
+            out.append(dict(reg=reg, name=name, label=label, kind="select", value=r[reg], raw=r[reg], div=1, unit="", help=help_, group="modes",
                             step=1, options=options, option_help=[[v, t, d] for v, t, d in opts], risk=risk,
                             writable=r[reg] in known))
     for reg, name, label, div, unit, help_ in SETTINGS:
         if reg in r:
             v = r[reg] / div
-            out.append(dict(reg=reg, name=name, label=label, kind="number", value=round(v, 2) if div > 1 else r[reg], unit=unit,
-                            help=help_, group=group_of(reg), step=1 / div, options=[], option_help=[], risk="",
-                            writable=reg in WRITABLE, lo=5 if reg in WRITABLE else None, hi=100 if reg in WRITABLE else None))
+            lo, hi, step = LIMITS.get(reg, (None, None, 1 / div))
+            out.append(dict(reg=reg, name=name, label=label, kind="number", value=round(v, 2) if div > 1 else r[reg], raw=r[reg],
+                            div=div, unit=unit, help=help_, group=group_of(reg), step=step, options=[], option_help=[],
+                            risk="caution" if reg == 41009 else "", writable=reg in WRITABLE, lo=lo, hi=hi))
     return out
 
 
@@ -495,10 +505,14 @@ def encode(setting, value):
     if reg not in WRITABLE or not setting.get("writable"):
         raise ValueError(f"{setting['label']} can't be changed here")
     try:
-        raw = int(round(float(value)))
+        raw = int(round(float(value) * setting.get("div", 1)))
     except (TypeError, ValueError):
         raise ValueError(f"{setting['label']}: {value!r} isn't a number")
     if raw not in WRITABLE[reg]:
+        lim = LIMITS.get(reg)
+        if lim:
+            raise ValueError(f"{setting['label']}: {value} is outside {lim[0]}-{lim[1]} {setting['unit']}".rstrip()
+                             + (" (whole numbers only)" if lim[0] <= float(value) <= lim[1] else ""))
         raise ValueError(f"{setting['label']}: {value} isn't one of the allowed values")
     return raw
 
@@ -506,7 +520,9 @@ def encode(setting, value):
 def fmt(setting, raw):
     if setting["kind"] == "select":
         return next((t for v, t in setting["options"] if v == raw), f"Unknown ({raw})")
-    return f"{raw} {setting['unit']}".strip()
+    div = setting.get("div", 1)
+    v = raw / div if div > 1 else raw
+    return f"{v:g} {setting['unit']}".strip()
 
 
 # --------------------------------------------------------------------------- try it: python3 powland.py <stick ip>

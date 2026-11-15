@@ -1309,7 +1309,7 @@ async def powland_inverter_payload(request, fresh):
             error = f"Couldn't read the POWLAND's settings: {e}"
     rows = [dict(key=pl_key(x), label=x["label"], group=x["group"], help=x["help"], kind=x["kind"], unit=x["unit"],
                  lo=x.get("lo"), hi=x.get("hi"), step=x["step"], options=x["options"], option_help=x["option_help"], risk=x["risk"],
-                 writable=x["writable"], unlocked=x["writable"], status="powland", value=x["value"], text=powland.fmt(x, x["value"]),
+                 writable=x["writable"], unlocked=x["writable"], status="powland", value=x["value"], text=powland.fmt(x, x["raw"]),
                  cloud=None, cloud_text=None, regs=[x["reg"]], bit=None, width=1)
             for x in S.pl_settings or []]
     return dict(source="powland" if S.pl_settings else None, error=error, read_at=round(S.pl_slow) or None, user=user, admin=admin,
@@ -1349,7 +1349,7 @@ async def change_powland_settings(request, body):
             raw = powland.encode(x, value)
         except ValueError as e:
             raise HTTPException(400, str(e))
-        if raw != x["value"]:
+        if raw != x["raw"]:
             want.append((x, raw))
     entries, failed = [], None
     for x, raw in want:
@@ -1358,12 +1358,12 @@ async def change_powland_settings(request, body):
         except powland.PowlandError as e:
             failed = f"{x['label']}: {e}"
             break
-        entries.append(dict(key=pl_key(x), label=x["label"], before=powland.fmt(x, x["value"]), after=powland.fmt(x, raw), reg=x["reg"], raw=raw))
+        entries.append(dict(key=pl_key(x), label=x["label"], before=powland.fmt(x, x["raw"]), after=powland.fmt(x, raw), reg=x["reg"], raw=raw))
     try:
         S.pl_settings, S.pl_slow = powland.norm_settings(await k.read_blocks(powland.SETTING_BLOCKS)), time.time()
     except powland.PowlandError as e:
         failed = failed or f"Couldn't read the settings back: {e}"
-    back = {x["reg"]: x["value"] for x in S.pl_settings or []}
+    back = {x["reg"]: x["raw"] for x in S.pl_settings or []}
     for e in entries:
         if back.get(e["reg"]) != e["raw"]:
             failed = failed or f"{e['label']}: the inverter reads {back.get(e['reg'])} after the change, not {e['raw']}"
