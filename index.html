@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>Solar</title>
-<script>try{const t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
+<script>try{const t=localStorage.getItem("theme");if(t==="light"||t==="dark"||t==="lcars")document.documentElement.dataset.theme=t;if(t==="lcars")document.write('<link rel="stylesheet" id="lcFont" href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&display=swap">')}catch(e){}</script>
 <style>
 /* Styled after the owner's Voltline iPad/iPhone app: black background, rounded dark cards, big numbers, tinted icons.
    Colors are tokens; dark is Voltline's own look, light is its iOS light-mode counterpart. */
@@ -267,9 +267,170 @@ a.pill{color:var(--ink);text-decoration:none;font-weight:600}
 @media(max-width:620px){.srow{grid-template-columns:1fr}.sctl{justify-content:flex-start}.sval{text-align:left}
   body.invopen .topbar .mini{display:none}
   .invnav{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}.invnav::-webkit-scrollbar{display:none}}
+
+/* ---------- LCARS look (Appearance -> LCARS): black field, rounded elbows, pill buttons in flat orange, lilac, blue
+   and peach, condensed upper-case type. Only applies with data-theme=lcars; the other themes are untouched. ---------- */
+:root[data-theme=lcars]{color-scheme:dark;
+--lc1:#8899ff;--lc2:#cc99ff;--lc3:#99ccff;--lc4:#ffcc99;--lc5:#ff9966;--lc6:#cc6666;--lc7:#9977dd;--lcgold:#ffcc66;
+--bg:#000;--card:#000;--card2:#10121e;--ink:#ffcc99;--dim:#8f9be0;--dim2:#3a3f66;--line:#232845;--glass:rgba(0,0,0,.85);--pill:transparent;
+--solar:#ffcc33;--pv2:#ff9966;--home:#9999ff;--bat:#99dd88;--gridIn:#66ccff;--gridOut:#ff6666;--life:#cc99cc;
+--ok:#99dd88;--bad:#ff5555;--warn:#ffaa33;--orange:#ff9966;--r:30px;--lcw:150px;--hd:150px}
+:root[data-theme=lcars] body{font-family:Antonio,"Arial Narrow","Roboto Condensed","Helvetica Neue",sans-serif;font-size:18px;letter-spacing:.02em}
+.lc-rail{display:none}
+:root[data-theme=lcars] .wrap{max-width:none;padding-left:calc(var(--lcw) + 34px)}
+:root[data-theme=lcars] .lc-rail{display:flex;flex-direction:column;gap:6px;position:fixed;left:16px;top:0;bottom:16px;width:var(--lcw);z-index:25}
+.lc-elbow{position:relative;flex:0 0 112px;background:var(--lc1);border-top-left-radius:76px}
+.lc-elbow::after{content:"";position:absolute;left:100%;top:0;height:28px;width:calc(100vw - var(--lcw) - 32px);background:linear-gradient(90deg,var(--lc1) 0 58%,#000 58% calc(58% + 6px),var(--lc2) calc(58% + 6px) 80%,#000 80% calc(80% + 6px),var(--lc3) calc(80% + 6px));border-radius:0 14px 14px 0}
+.lc-elbow::before{content:"";position:absolute;left:100%;top:28px;width:44px;height:44px;background:radial-gradient(circle at 100% 100%,transparent 43px,var(--lc1) 44px)}
+.lc-elbow span{position:absolute;right:12px;bottom:8px;color:#000;font-weight:700;font-size:22px;letter-spacing:.06em}
+.lc-elbow small{position:absolute;right:12px;bottom:36px;color:#000;font-size:13px;letter-spacing:.12em;opacity:.75}
+.lc-rail [data-code]{position:relative}
+.lc-rail [data-code]::before{content:attr(data-code);position:absolute;left:10px;top:6px;font-size:12px;font-weight:400;letter-spacing:.1em;opacity:.7}
+.lc-rail button,.lc-rail a,.lc-rail .lc-fill{display:flex;align-items:flex-end;justify-content:flex-end;padding:0 12px 6px;min-height:58px;color:#000;font-weight:600;font-size:17px;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;background:var(--c,var(--lc2))}
+.lc-rail button:hover,.lc-rail a:hover{filter:brightness(1.18)}
+.lc-rail .on{background:var(--lcgold)}
+.lc-rail .lc-fill{flex:1 1 auto;min-height:20px;font-weight:400;font-size:14px}
+.lc-rail .lc-end{flex:0 0 46px;min-height:0;border-bottom-left-radius:30px}
+/* the top bar sits under the frame's bar; its buttons move to the rail on wide screens */
+:root[data-theme=lcars] .topbar{padding-top:40px;background:#000;border-bottom:0!important;-webkit-backdrop-filter:none;backdrop-filter:none;margin-left:0;justify-content:flex-end;min-height:40px}
+:root[data-theme=lcars] .topbar>*{display:none}
+:root[data-theme=lcars] .topbar .mini{display:none}
+:root[data-theme=lcars] h1{font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--lc5);font-size:clamp(34px,2vw + 22px,54px)}
+:root[data-theme=lcars] .titlerow{justify-content:space-between;flex-direction:row-reverse}
+:root[data-theme=lcars] .chip{background:var(--lc3);color:#000;border-radius:999px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+:root[data-theme=lcars] .chip i{box-shadow:0 0 0 2px #000}
+:root[data-theme=lcars] .updated{color:var(--lc2);text-transform:uppercase;letter-spacing:.05em}
+/* cards: an elbow down the left and across the top, colors in turn */
+:root[data-theme=lcars] .card{--c:var(--lc1);background:#000;border-left:16px solid var(--c);border-top:10px solid var(--c);border-radius:34px 0 0 0;padding-top:12px}
+:root[data-theme=lcars] #cards .card:nth-child(6n+2),:root[data-theme=lcars] .card:nth-of-type(6n+2){--c:var(--lc2)}
+:root[data-theme=lcars] #cards .card:nth-child(6n+3),:root[data-theme=lcars] .card:nth-of-type(6n+3){--c:var(--lc3)}
+:root[data-theme=lcars] #cards .card:nth-child(6n+4),:root[data-theme=lcars] .card:nth-of-type(6n+4){--c:var(--lc4)}
+:root[data-theme=lcars] #cards .card:nth-child(6n+5),:root[data-theme=lcars] .card:nth-of-type(6n+5){--c:var(--lc5)}
+:root[data-theme=lcars] #cards .card:nth-child(6n),:root[data-theme=lcars] .card:nth-of-type(6n){--c:var(--lc7)}
+:root[data-theme=lcars] .chead h2,:root[data-theme=lcars] #chGroups h2.sect{color:var(--c,var(--lc1));text-transform:uppercase;letter-spacing:.08em;font-weight:600;font-size:21px}
+:root[data-theme=lcars] .ico{border-radius:0 14px 14px 0;background:var(--c);color:#000!important;width:46px;height:34px}
+:root[data-theme=lcars] .big,:root[data-theme=lcars] .mid,:root[data-theme=lcars] .kv3 b,:root[data-theme=lcars] .life b,:root[data-theme=lcars] .pvt .num,:root[data-theme=lcars] .kv2 b{font-weight:600;letter-spacing:.02em}
+:root[data-theme=lcars] .big small,:root[data-theme=lcars] .mid small,:root[data-theme=lcars] .kv2 span,:root[data-theme=lcars] .kv3 span,:root[data-theme=lcars] .life span,:root[data-theme=lcars] th{text-transform:uppercase;letter-spacing:.06em}
+:root[data-theme=lcars] .pvt{border-radius:0 22px 22px 0;border-width:0 0 0 8px}
+:root[data-theme=lcars] .bar{border-radius:0;height:14px;background:#1d1d1d}
+:root[data-theme=lcars] .bar .fill{border-radius:0;background:repeating-linear-gradient(90deg,var(--lc1) 0 14px,#000 14px 18px)}
+:root[data-theme=lcars] .bar .knob{border-radius:3px;width:10px;height:26px;margin:-13px 0 0 -5px;background:var(--lc5)}
+:root[data-theme=lcars] .mini-bar,:root[data-theme=lcars] .mini-bar span{border-radius:0}
+/* buttons: flat pills with black upper-case labels */
+:root[data-theme=lcars] .seg{background:transparent;gap:5px;padding:0;border-radius:0}
+:root[data-theme=lcars] .seg button,:root[data-theme=lcars] :root .seg button{background:var(--lc2);color:#000;border-radius:999px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;box-shadow:none}
+:root[data-theme=lcars] .seg button.on{background:var(--lc1);color:#000;box-shadow:none}
+:root[data-theme=lcars] .seg button:first-child{border-radius:999px 6px 6px 999px}
+:root[data-theme=lcars] .seg button:last-child{border-radius:6px 999px 999px 6px}
+:root[data-theme=lcars] .seg button:not(:first-child):not(:last-child){border-radius:6px}
+:root[data-theme=lcars] .seg button:only-child{border-radius:999px}
+:root[data-theme=lcars] .btn,:root[data-theme=lcars] .locbtn,:root[data-theme=lcars] .invnav a,:root[data-theme=lcars] .arr button,:root[data-theme=lcars] .sctl .x{background:var(--lc3);color:#000;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+:root[data-theme=lcars] .btn.primary{background:var(--lc1);color:#000}
+:root[data-theme=lcars] .btn.danger{background:var(--lc6);color:#000}
+:root[data-theme=lcars] .cta{background:var(--lc1);color:#000;text-transform:uppercase;letter-spacing:.1em;font-weight:700}
+:root[data-theme=lcars] .cta.stop{background:var(--lc6);color:#000;border:0}
+:root[data-theme=lcars] .skybadge,:root[data-theme=lcars] .tag{background:var(--lc5);color:#000;text-transform:uppercase;letter-spacing:.05em}
+:root[data-theme=lcars] .tag.bad{background:var(--bad);color:#000}:root[data-theme=lcars] .tag.warn{background:var(--warn);color:#000}:root[data-theme=lcars] .tag.ok{background:var(--ok);color:#000}
+:root[data-theme=lcars] .banner{background:#000;border-left:14px solid var(--bad);border-radius:0 999px 999px 0;color:var(--ink);text-transform:uppercase;letter-spacing:.04em}
+:root[data-theme=lcars] .banner.warn{border-left-color:var(--warn)}
+:root[data-theme=lcars] input,:root[data-theme=lcars] select{background:#000!important;border:2px solid var(--lc3)!important;color:var(--lc5)}
+:root[data-theme=lcars] .tgl span{background:#333}:root[data-theme=lcars] .tgl input:checked+span{background:var(--lc1)}
+:root[data-theme=lcars] .opth li{border-radius:0 16px 16px 0;border-width:0 0 0 6px;border-color:var(--lc2)}
+:root[data-theme=lcars] .opth li.cur{border-color:var(--ok)}:root[data-theme=lcars] .opth li.pick{border-color:var(--lc1)}
+:root[data-theme=lcars] .wxday,:root[data-theme=lcars] .tip{border-radius:0 18px 18px 0;border-left:6px solid var(--lc3)}
+:root[data-theme=lcars] .invbar{background:#000;border:0;border-left:16px solid var(--lc1);border-radius:0 999px 999px 0;box-shadow:none}
+:root[data-theme=lcars] .house,:root[data-theme=lcars] .hchip{border-radius:0 18px 18px 0}
+:root[data-theme=lcars] .hchip{background:#000;border:0;border-left:.8cqw solid var(--lc1);text-transform:uppercase}
+:root[data-theme=lcars] .hchip.bat{background:#000;border-left-color:var(--lc2)}
+:root[data-theme=lcars] dialog{background:#000;border-left:16px solid var(--lc1);border-top:10px solid var(--lc1);border-radius:34px 0 0 0;box-shadow:0 0 0 1px #222}
+:root[data-theme=lcars] dialog h3{color:var(--lc1);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+:root[data-theme=lcars] .field>span{text-transform:uppercase;letter-spacing:.08em;color:var(--lc2)}
+:root[data-theme=lcars] #toast{background:var(--lc1);color:#000;text-transform:uppercase;letter-spacing:.06em}
+:root[data-theme=lcars] #flow{max-width:980px}
+#flow .lc-lab{font-size:22px;font-weight:700;letter-spacing:.1em;fill:#000}
+#flow .lc-val{font-size:52px;font-weight:600;letter-spacing:.02em}
+#flow .lc-unit{font-size:22px;fill:var(--dim)}
+#flow .lc-mid{font-size:30px;font-weight:600;letter-spacing:.06em}
+#flow .lc-sub{font-size:17px;letter-spacing:.08em;fill:var(--dim)}
+#flow .lc-code{font-size:14px;letter-spacing:.2em;fill:var(--lc2);opacity:.8}
+#flow .lc-run{animation:lcrun 1s linear infinite}
+@keyframes lcrun{to{stroke-dashoffset:-34}}
+@media(prefers-reduced-motion:reduce){#flow .lc-run{animation:none}}
+/* bridge readouts: the three numbers that matter, viewscreen size, above the cards */
+.lc-bridge,.lc-alert,#lcSoundRow{display:none}
+:root[data-theme=lcars] .lc-bridge{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin:4px 0 24px}
+.lc-bridge>div{border-left:14px solid var(--c);padding:0 10px 4px 22px;min-width:0}
+.lc-bridge .t{display:inline-block;background:var(--c);color:#000;border-radius:0 999px 999px 0;padding:3px 18px 2px 12px;font-weight:700;font-size:17px;letter-spacing:.14em;margin-left:-22px}
+.lc-bridge .n{font-size:clamp(56px,5.6vw,132px);font-weight:600;line-height:1.02;color:var(--c);letter-spacing:.01em;white-space:nowrap;margin-top:6px}
+.lc-bridge .n small{font-size:.3em;color:var(--dim);margin-left:.2em;letter-spacing:.08em}
+.lc-bridge .s{color:var(--dim);font-size:15px;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lc-bridge .segs{display:flex;gap:4px;margin:8px 0 6px;max-width:320px}.lc-bridge .segs i{flex:1;height:12px;background:#22263f}.lc-bridge .segs i.on{background:var(--c)}
+/* charts: square bars, a dotted framed grid, a data column down the side */
+:root[data-theme=lcars] .chart rect{rx:0;ry:0}
+:root[data-theme=lcars] .chart line[stroke="var(--line)"]{stroke:#2e3566;stroke-dasharray:2 5}
+:root[data-theme=lcars] .chart text{text-transform:uppercase;letter-spacing:.06em}
+:root[data-theme=lcars] .chartbox{border-bottom:8px solid transparent;border-image:repeating-linear-gradient(90deg,var(--c,var(--lc1)) 0 60px,#000 60px 66px) 8}
+:root[data-theme=lcars] .legend i,:root[data-theme=lcars] .chstats td i{border-radius:0 6px 6px 0;width:20px;height:11px}
+@media(min-width:761px){
+  :root[data-theme=lcars] .chartbox{padding-right:54px}
+  :root[data-theme=lcars] .chartbox::after{content:"0471\A 2620\A 1201\A 5588\A 0012\A 7741\A 3390\A 0815";white-space:pre;position:absolute;right:0;top:4px;width:44px;text-align:right;font-size:12px;line-height:1.9;letter-spacing:.1em;color:var(--lc3);opacity:.7;pointer-events:none}}
+/* alerts: the whole palette goes red (or yellow) and a flashing banner names the reason */
+:root[data-theme=lcars][data-alert=red]{--lc1:#ff3c3c;--lc2:#cc2f2f;--lc3:#ff7a6e;--lc4:#ff9a8a;--lc5:#ff5a4a;--lc7:#b82a2a;--lcgold:#ffb0a0}
+:root[data-theme=lcars][data-alert=yellow]{--lc1:#ffcc33;--lc2:#e6b800;--lc3:#ffdd77;--lc4:#ffe8a8;--lc5:#ffbb33;--lc7:#cc9900;--lcgold:#fff0b0}
+:root[data-theme=lcars][data-alert] .topbar{min-height:96px}
+:root[data-theme=lcars][data-alert] .lc-alert{display:flex;position:fixed;top:42px;right:28px;z-index:30;align-items:center;gap:14px;background:#000;padding:0 0 0 0;font-weight:700;letter-spacing:.14em;font-size:22px;text-transform:uppercase}
+.lc-alert b{background:var(--lc1);color:#000;border-radius:999px 0 0 999px;padding:6px 18px 4px 24px;animation:lcblink 1s steps(2,jump-none) infinite}
+.lc-alert span{color:var(--lc1);padding-right:22px;border-right:14px solid var(--lc1);border-radius:0 999px 999px 0;line-height:38px}
+:root[data-theme=lcars][data-alert=red] .lc-elbow{animation:lcblink 1s steps(2,jump-none) infinite}
+@keyframes lcblink{50%{opacity:.25}}
+@media(prefers-reduced-motion:reduce){.lc-alert b,:root[data-theme=lcars][data-alert=red] .lc-elbow{animation:none}}
+:root[data-theme=lcars] #lcSoundRow{display:flex}
+/* inverter settings: each setting an LCARS row, a colored cap at each end */
+:root[data-theme=lcars] .srow{--rc:var(--lc1);border-top:0;margin:8px 0;padding:12px 26px 12px 34px;position:relative;background:#070814}
+:root[data-theme=lcars] .srow:nth-of-type(4n+2){--rc:var(--lc2)}:root[data-theme=lcars] .srow:nth-of-type(4n+3){--rc:var(--lc3)}:root[data-theme=lcars] .srow:nth-of-type(4n){--rc:var(--lc4)}
+:root[data-theme=lcars] .srow::before{content:"";position:absolute;left:0;top:0;bottom:0;width:20px;background:var(--rc);border-radius:16px 0 0 16px}
+:root[data-theme=lcars] .srow::after{content:"";position:absolute;right:0;top:0;bottom:0;width:10px;background:var(--rc);border-radius:0 8px 8px 0}
+:root[data-theme=lcars] .srow.changed{box-shadow:none;padding-left:34px;margin-left:0;outline:2px solid var(--lcgold);outline-offset:-2px}
+:root[data-theme=lcars] .srow.changed::before,:root[data-theme=lcars] .srow.changed::after{background:var(--lcgold)}
+:root[data-theme=lcars] .sname{color:var(--rc);text-transform:uppercase;letter-spacing:.08em;font-size:17px}
+:root[data-theme=lcars] .sval{color:var(--ink);font-size:20px;letter-spacing:.04em}
+:root[data-theme=lcars] .gintro{text-transform:none}
+/* power flow: the bridge readouts sit beside a full-width LCARS diagram when the card is wide enough */
+:root[data-theme=lcars] [data-id=flow]{container-type:inline-size}
+:root[data-theme=lcars] #flow{max-width:none}
+:root[data-theme=lcars] .lc-flowrow{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+:root[data-theme=lcars] .lc-flowrow .lc-bridge{margin:0 0 6px}
+@container (min-width:900px){
+  :root[data-theme=lcars] .lc-flowrow:has(.lc-bridge){grid-template-columns:minmax(220px,290px) minmax(0,1fr);gap:28px;align-items:center}
+  :root[data-theme=lcars] .lc-flowrow .lc-bridge{grid-template-columns:1fr;gap:30px;margin:0}
+  :root[data-theme=lcars] .lc-flowrow .lc-bridge .n{font-size:clamp(56px,6.5cqi,104px)}}
+/* phones: no room for a rail, so the frame becomes one elbow across the top and the normal buttons come back */
+@media(max-width:760px){
+  :root[data-theme=lcars] .wrap{padding-left:clamp(16px,2vw,32px)}
+  :root[data-theme=lcars] .lc-rail{display:none}
+  :root[data-theme=lcars] .topbar{padding-top:12px;margin:0 calc(-1 * clamp(16px,2vw,32px));border-top:14px solid var(--lc1)!important;justify-content:space-between}
+  :root[data-theme=lcars] .topbar>*:not(.mini):not(.hidden){display:inline-flex}
+  :root[data-theme=lcars] .topbar .pill{background:var(--lc2);color:#000;border-radius:999px}
+  :root[data-theme=lcars] .topbar .pill.text{background:var(--lc1);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+  :root[data-theme=lcars] .card{border-left-width:12px;border-top-width:8px;border-radius:26px 0 0 0}
+  :root[data-theme=lcars] .lc-bridge{gap:8px}.lc-bridge>div{border-left-width:8px;padding-left:10px}.lc-bridge .t{font-size:13px;margin-left:-10px;padding:2px 10px 1px 8px}
+  .lc-bridge .n{font-size:clamp(30px,10vw,48px)}.lc-bridge .s{font-size:11px;letter-spacing:.06em}
+  :root[data-theme=lcars][data-alert] .lc-alert{top:auto;bottom:16px;left:16px;right:16px;justify-content:center;font-size:18px}}
 </style>
 </head>
 <body>
+<nav class="lc-rail" id="lcRail" aria-label="Navigation">
+  <div class="lc-elbow"><small id="lcDate">--</small><span id="lcClock">--</span></div>
+  <a href="#" style="--c:var(--lc4)" id="lcHome" data-code="01-0471">Dashboard</a>
+  <button type="button" data-press="chBtn" style="--c:var(--lc3)" data-code="02-2620">Charts</button>
+  <button type="button" data-press="invBtn" style="--c:var(--lc1)" data-code="03-1201">Inverter</button>
+  <button type="button" data-press="arrangeBtn" style="--c:var(--lc7)" id="lcArrange" data-code="04-5588">Arrange</button>
+  <button type="button" data-press="refreshBtn" style="--c:var(--lc5)" data-code="05-0012">Refresh</button>
+  <button type="button" data-press="settingsBtn" style="--c:var(--lc2)" data-code="06-7741">Settings</button>
+  <div class="lc-fill" style="--c:var(--lc1)" aria-hidden="true" id="lcStat"></div>
+  <div class="lc-fill lc-end" style="--c:var(--lc3)" aria-hidden="true"></div>
+</nav>
+<div class="lc-alert" id="lcAlert" role="alert"><b></b><span></span></div>
 <div class="wrap">
 <div class="topbar" id="topbar">
   <button class="pill text" id="arrangeBtn" type="button">Arrange</button>
@@ -300,11 +461,13 @@ a.pill{color:var(--ink);text-decoration:none;font-weight:600}
     <div class="chiprow"><span class="chip"><i id="chipDot" class="wait"></i><span id="chipText">EG4 cloud</span></span><span class="updated" id="updated"></span></div></div>
   <div id="banner" class="banner hidden"></div>
 
+  <div class="lc-bridge" id="lcBridge"></div>
   <div class="arrbar"><span class="dim small">Drag a card by <b>⠿</b> to move it, drag its corner to make it wider or narrower, or tap the eye to hide it.</span>
     <button class="btn" type="button" id="resetLayout">Reset layout</button></div>
   <div id="cards">
     <section class="card" data-id="flow">
       <div class="chead"><span class="ico" style="color:var(--home)" data-icon="bolt"></span><h2>Power flow</h2><span class="skybadge hidden" id="skyBadge"></span></div>
+      <div class="lc-flowrow" id="lcFlowRow">
       <div class="house" id="house" role="img" aria-label="Power flow">
         <img src="house.webp" alt="" width="1312" height="860" id="houseImg">
         <div class="tint" id="houseTint"></div>
@@ -321,6 +484,7 @@ a.pill{color:var(--ink);text-decoration:none;font-weight:600}
         </div>
       </div>
       <svg id="flow" viewBox="0 0 640 450" role="img" aria-label="Power flow"></svg>
+      </div>
     </section>
     <section class="card" data-id="pv">
       <div class="chead"><span class="ico" style="color:var(--solar)" data-icon="sun"></span><h2>MPPT solar inputs</h2></div>
@@ -507,7 +671,8 @@ a.pill{color:var(--ink);text-decoration:none;font-weight:600}
 
 <dialog id="settings">
   <h3>Settings</h3>
-  <div class="field"><span>Appearance</span><div class="seg" id="themeSeg" style="margin:0"><button type="button" data-t="auto">Automatic</button><button type="button" data-t="light">Light</button><button type="button" data-t="dark">Dark</button></div></div>
+  <div class="field"><span>Appearance</span><div class="seg" id="themeSeg" style="margin:0"><button type="button" data-t="auto">Automatic</button><button type="button" data-t="light">Light</button><button type="button" data-t="dark">Dark</button><button type="button" data-t="lcars">LCARS</button></div></div>
+  <label class="chk" id="lcSoundRow"><input type="checkbox" id="lcSound"> LCARS button sounds</label>
   <div class="field"><span>Power flow</span><div class="seg" id="flowSeg" style="margin:0"><button type="button" data-f="picture">Picture</button><button type="button" data-f="diagram">Diagram</button></div></div>
   <div class="sec">
     <b>EG4 Monitor login</b>
@@ -619,14 +784,83 @@ $("#refreshBtn").onclick = () => guard(async () => {
 });
 
 /* ---------- theme ---------- */
-let theme = ["light", "dark"].includes(store("theme")) ? store("theme") : "auto";
+let theme = ["light", "dark", "lcars"].includes(store("theme")) ? store("theme") : "auto";
 function applyTheme(t){
   if(t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  if(t === "lcars" && !$("#lcFont")) document.head.append(el("link", {rel:"stylesheet", id:"lcFont", href:"https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&display=swap"}));
   document.querySelectorAll("#themeSeg button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
   drawAll();
 }
 document.querySelectorAll("#themeSeg button").forEach(b => b.onclick = () => { theme = b.dataset.t; store("theme", theme); applyTheme(theme); });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => drawAll());
+/* LCARS rail: each button presses the page's own button; the elbow shows the time and the bottom block the status */
+document.querySelectorAll("#lcRail [data-press]").forEach(b => b.onclick = () => { const t = $("#" + b.dataset.press); if(t && !t.classList.contains("hidden")) t.click(); });
+function lcRail(){
+  const page = location.hash.slice(1);
+  $("#lcHome").classList.toggle("on", !page);
+  document.querySelectorAll("#lcRail [data-press]").forEach(b => b.classList.toggle("on", (b.dataset.press === "chBtn" && page === "charts") || (b.dataset.press === "invBtn" && page === "inverter")));
+  $("#lcArrange").textContent = $("#arrangeBtn").textContent; $("#lcArrange").style.visibility = $("#arrangeBtn").classList.contains("hidden") ? "hidden" : "";
+  const d = new Date(); $("#lcClock").textContent = d.toTimeString().slice(0, 5);
+  lcAlert();
+  if(document.documentElement.dataset.theme !== "lcars") return;
+  $("#lcDate").textContent = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  $("#lcStat").textContent = ($("#chipText").textContent || "").toUpperCase();
+  lcBridge();
+  // the readouts go inside the power flow card (beside the diagram) unless that card is hidden
+  const fc = $('[data-id="flow"]'), inCard = fc && !fc.classList.contains("off") && !fc.classList.contains("na") && !document.body.classList.contains("arranging");
+  const br = $("#lcBridge"), want = inCard ? $("#lcFlowRow") : $(".arrbar").parentElement;
+  if(br.parentElement !== want){ if(inCard) want.prepend(br); else $(".arrbar").before(br); requestAnimationFrame(() => drawAll()); }
+}
+setInterval(lcRail, 1000); addEventListener("hashchange", () => setTimeout(lcRail));
+/* bridge readouts, alert level and button chirp (LCARS only) */
+function lcBridge(){
+  const L = st && st.live, T = st && st.energy ? st.energy.today || {} : {};
+  if(!L){ $("#lcBridge").replaceChildren(); return; }
+  const F = flowSplit(L), soc = L.soc != null ? Math.round(L.soc) : null;
+  const num = (w) => { const [n, u] = wParts(w); return [n, el("small", {textContent:u})]; };
+  const col = (c, t, n, s, extra) => { const d = el("div", {style:`--c:${c}`}, el("span", {className:"t", textContent:t}), el("div", {className:"n"}, ...n));
+    if(extra) d.append(extra); d.append(el("div", {className:"s", textContent:s})); return d; };
+  const segs = el("div", {className:"segs"}); for(let i = 1; i <= 10; i++) segs.append(el("i", {className:soc != null && soc >= i * 10 - 5 ? "on" : ""}));
+  const key = JSON.stringify([F.pv, F.load, F.chg, F.dis, soc, T.solar, T.used]);
+  if($("#lcBridge").dataset.k === key) return; $("#lcBridge").dataset.k = key;
+  $("#lcBridge").replaceChildren(
+    col("var(--lc5)", "SOLAR", num(F.pv), T.solar != null ? `${T.solar.toFixed(1)} kWh today` : ""),
+    col("var(--lc1)", "BATTERY", [soc != null ? String(soc) : "-", el("small", {textContent:"%"})],
+        F.chg > 15 ? `Charging ${kW(F.chg)}` : F.dis > 15 ? `Discharging ${kW(F.dis)}` : "Idle", segs),
+    col("var(--lc2)", "HOUSE", num(F.load), T.used != null ? `${T.used.toFixed(1)} kWh today` : ""));
+}
+function lcAlert(){
+  const L = st && st.live, root = document.documentElement;
+  let lvl = null, why = "";
+  if(L && !L.lost){
+    const soc = L.soc, gridDown = L.v_ac != null && L.v_ac < 80;
+    if(soc != null && soc <= 15){ lvl = "red"; why = `Battery ${Math.round(soc)}%`; }
+    else if(gridDown){ lvl = "red"; why = "Grid down"; }
+    else if(soc != null && soc <= 25){ lvl = "yellow"; why = `Battery ${Math.round(soc)}%`; }
+    else if((L.grid || 0) < -50){ lvl = "yellow"; why = "Power going to the grid"; }
+  } else if(L && L.lost){ lvl = "yellow"; why = "Inverter not answering"; }
+  else if(st && st.stale){ lvl = "yellow"; why = "Readings are old"; }
+  const pv = SKY_PREVIEW.get("alert"); if(pv){ lvl = pv; why = pv === "red" ? "Battery 12%" : "Battery 22%"; }   // ?alert=red to preview
+  if(root.dataset.theme !== "lcars") lvl = null;
+  if(lvl) root.dataset.alert = lvl; else delete root.dataset.alert;
+  $("#lcAlert b").textContent = lvl === "red" ? "Red alert" : lvl === "yellow" ? "Yellow alert" : "";
+  $("#lcAlert span").textContent = why;
+}
+let lcAudio = null;
+function lcChirp(){
+  if(store("lcSound") !== "1" || document.documentElement.dataset.theme !== "lcars") return;
+  try{
+    lcAudio = lcAudio || new (window.AudioContext || window.webkitAudioContext)();
+    const t = lcAudio.currentTime, o = lcAudio.createOscillator(), g = lcAudio.createGain();
+    o.type = "sine"; o.frequency.setValueAtTime(1320, t); o.frequency.exponentialRampToValueAtTime(2100, t + .05);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.06, t + .008); g.gain.exponentialRampToValueAtTime(.0001, t + .13);
+    o.connect(g).connect(lcAudio.destination); o.start(t); o.stop(t + .14);
+  }catch(e){}
+}
+$("#lcSound").checked = store("lcSound") === "1";
+$("#lcSound").onchange = () => { store("lcSound", $("#lcSound").checked ? "1" : "0"); lcChirp(); };
+document.addEventListener("click", ev => { if(ev.target.closest("#lcRail button, #lcRail a, .seg button, .btn, .cta, .invnav a")) lcChirp(); });
+
 
 /* ---------- arrange: drag to move, drag the corner to resize ---------- */
 const DEFAULT_ORDER = [...document.querySelectorAll("#cards .card")].map(c => c.dataset.id);
@@ -1081,10 +1315,94 @@ function drawSky(L){
 }
 function drawFlow(L){
   const pic = flowStyle === "picture";
+  if(pic && document.documentElement.dataset.theme === "lcars"){   // LCARS: the picture becomes a line diagram
+    document.querySelectorAll("#flowSeg button").forEach(b => b.classList.toggle("on", b.dataset.f === flowStyle));
+    $("#house").classList.add("hidden"); $("#flow").classList.remove("hidden");
+    return drawLcars(L);
+  }
   document.querySelectorAll("#flowSeg button").forEach(b => b.classList.toggle("on", b.dataset.f === flowStyle));
   $("#house").classList.toggle("hidden", !pic); $("#flow").classList.toggle("hidden", pic);
   if(pic){ drawSky(L); drawHouse(L); return snapHouse(); }
   drawDiagram(L);
+}
+/* LCARS line diagram: five labelled blocks joined by thick elbowed bars through the inverter. A bar carrying power
+   lights up in its source's color with segments running the way the power goes; an idle bar stays dark. */
+function drawLcars(L){
+  const svg = $("#flow"); svg.replaceChildren();
+  const cw = svg.getBoundingClientRect().width || 700, narrow = cw < 560;
+  const VW = narrow ? 560 : 900, H = narrow ? 600 : 540, PW = narrow ? 150 : 180, PH = 40, M = 6;
+  svg.setAttribute("viewBox", `0 0 ${VW} ${H}`);
+  const F = L ? flowSplit(L) : {pv:0, load:0, chg:0, dis:0, imp:0};
+  const T = st && st.energy ? st.energy.today || {} : {};
+  const C = {solar:"var(--lc5)", grid:"var(--lc3)", inv:"var(--lc4)", home:"var(--lc2)", bat:"var(--lc1)"};
+  const xl = M, xr = VW - M - PW, cx = VW / 2, ty = narrow ? 30 : 34, by = H - (narrow ? 150 : 140);
+  const IW = narrow ? 200 : 240, IH = narrow ? 120 : 112, iy = (ty + PH + by) / 2 - IH / 2 + (narrow ? 10 : 0);
+  const ix = cx - IW / 2, R = 26, sw = narrow ? 12 : 14;
+  // bars: drawn from where the power comes from to where it goes
+  const leftIn = ix + IW * .3, rightIn = ix + IW * .7, top = iy, bot = iy + IH, yT = ty + PH / 2, yB = by + PH / 2;
+  const elbow = (x1, y1, x2, y2) => {   // horizontal, then a rounded turn, then vertical (or the reverse when x1 is the vertical end)
+    const sx = Math.sign(x2 - x1), sy = Math.sign(y2 - y1);
+    return `M${x1} ${y1} L${x2 - sx * R} ${y1} Q${x2} ${y1} ${x2} ${y1 + sy * R} L${x2} ${y2}`;
+  };
+  const rev = (x1, y1, x2, y2) => {     // vertical first, then horizontal
+    const sx = Math.sign(x2 - x1), sy = Math.sign(y2 - y1);
+    return `M${x1} ${y1} L${x1} ${y2 - sy * R} Q${x1} ${y2} ${x1 + sx * R} ${y2} L${x2} ${y2}`;
+  };
+  const links = [
+    {d:elbow(xl + PW, yT, leftIn, top), w:F.pv, col:C.solar},                                         // solar -> inverter
+    {d:elbow(xr, yT, rightIn, top), w:F.imp, col:C.grid},                                             // grid -> inverter
+    {d:rev(leftIn, bot, xl + PW, yB), w:F.load, col:C.inv},                                           // inverter -> home
+    F.dis > F.chg ? {d:elbow(xr, yB, rightIn, bot), w:F.dis, col:C.bat}                               // battery -> inverter
+                  : {d:rev(rightIn, bot, xr, yB), w:F.chg, col:C.inv},                                // inverter -> battery
+  ];
+  links.forEach(k => {
+    const on = k.w > 15;
+    svg.append(svgEl("path", {d:k.d, fill:"none", stroke:on ? k.col : "#2a2a2a", "stroke-width":sw, "stroke-linecap":"butt", "stroke-linejoin":"round", opacity:on ? .35 : 1}));
+    if(!on) return;
+    const run = svgEl("path", {d:k.d, fill:"none", stroke:k.col, "stroke-width":sw, "stroke-dasharray":"22 12", class:"lc-run"});
+    if(!REDUCED) run.style.animationDuration = Math.max(.35, 1.6 - k.w / 6000).toFixed(2) + "s";
+    svg.append(run);
+  });
+  // blocks
+  const tx = (x, y, cls, str, attrs = {}) => { const t = svgEl("text", {x, y, class:cls, ...attrs}); t.textContent = str; svg.append(t); return t; };
+  const block = (x, y, col, label, w, sub, right, extra) => {
+    const on = w == null || w > 15;
+    svg.append(svgEl("rect", {x, y, width:PW, height:PH, rx:PH / 2, fill:col, opacity:on ? 1 : .5}));
+    svg.append(svgEl("rect", {x:right ? x + PH * .8 : x + PW - PH * .8 - 6, y, width:6, height:PH, fill:"#000"}));
+    tx(right ? x + PW - 16 : x + PW - PH * .8 - 14, y + PH - 11, "lc-lab", label, {"text-anchor":"end"});
+    const ax = right ? x + PW : x, anc = right ? "end" : "start";
+    if(w != null){
+      const [n, u] = wParts(w), v = tx(ax, y + PH + (narrow ? 46 : 50), "lc-val", n, {"text-anchor":anc, fill:on ? col : "var(--dim)"});
+      v.append(svgEl("tspan", {class:"lc-unit", dx:6}, u));
+    }
+    if(extra) extra(ax, anc);
+    if(sub) tx(ax, y + PH + (narrow ? 72 : 78), "lc-sub", sub.toUpperCase(), {"text-anchor":anc});
+  };
+  const kwh = v => v != null ? `${v.toFixed(1)} kWh today` : "";
+  block(xl, ty, C.solar, "SOLAR", F.pv, kwh(T.solar), false);
+  block(xr, ty, C.grid, "GRID", F.imp, F.imp > 15 ? `Importing · ${kwh(T.imported ?? 0)}` : `Idle · ${kwh(T.imported ?? 0)}`, true);
+  block(xl, by, C.home, "HOME", F.load, kwh(T.used), false);
+  const soc = L && L.soc != null ? Math.round(L.soc) : null;
+  block(xr, by, C.bat, "BATTERY", F.chg > 15 ? F.chg : F.dis, F.chg > 15 ? "Charging" : F.dis > 15 ? "Discharging" : "Idle", true, (ax, anc) => {
+    // charge level as a segmented bar, LCARS style
+    const n = 10, gw = (PW - (n - 1) * 4) / n, y = by - 22;
+    for(let i = 0; i < n; i++) svg.append(svgEl("rect", {x:xr + i * (gw + 4), y, width:gw, height:12, fill:soc != null && soc >= (i + 1) * 10 - 5 ? C.bat : "#2a2a2a"}));
+    tx(xr + PW, y - 8, "lc-sub", soc != null ? `${soc}% charged` .toUpperCase() : "", {"text-anchor":"end"});
+  });
+  // the inverter: a framed block in the middle
+  svg.append(svgEl("rect", {x:ix, y:iy, width:IW, height:IH, rx:22, fill:"#000", stroke:C.inv, "stroke-width":4}));
+  svg.append(svgEl("rect", {x:ix, y:iy, width:IW, height:30, rx:15, fill:C.inv}));
+  svg.append(svgEl("rect", {x:ix, y:iy + 15, width:IW, height:15, fill:C.inv}));
+  tx(ix + IW - 16, iy + 22, "lc-lab", "INVERTER", {"text-anchor":"end"});
+  const temp = L && L.t_inner != null ? `${tF(L.t_inner)}°F` : "";
+  const stt = tx(cx, iy + 30 + (IH - 30) * .52, "lc-mid", L ? (L.lost ? "OFFLINE" : (L.status || "Normal").toUpperCase()) : "-", {"text-anchor":"middle", fill:C.inv});
+  try{ for(let fs = 30; fs > 14 && stt.getComputedTextLength() > IW - 24; fs -= 2) stt.style.fontSize = fs - 2 + "px"; }catch(e){}
+  tx(cx, iy + IH - 14, "lc-sub", [temp, L && L.inv > 15 ? `${kW(L.inv)} out` : ""].filter(Boolean).join(" · ").toUpperCase(), {"text-anchor":"middle"});
+  // panel codes, for the look
+  const code = (x, y, str, a) => tx(x, y, "lc-code", str, {"text-anchor":a});
+  code(cx, ty + 12, `${String(Math.round(F.pv)).padStart(4, "0")}-${String(Math.round(F.load)).padStart(4, "0")}`, "middle");
+  code(cx, H - 10, `LCARS ${new Date().toTimeString().slice(0, 8).replace(/:/g, "")}`, "middle");
+  svg.setAttribute("aria-label", L ? `Solar ${kW(F.pv)}, home ${kW(F.load)}, battery ${soc}% ${F.chg > 15 ? "charging " + kW(F.chg) : F.dis > 15 ? "discharging " + kW(F.dis) : "idle"}, grid ${F.imp > 15 ? "importing " + kW(F.imp) : "idle"}` : "Power flow");
 }
 function drawDiagram(L){
   const svg = $("#flow"); svg.replaceChildren();

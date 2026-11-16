@@ -360,6 +360,15 @@ An expired session returns HTML or 401, so the client logs in again once. `succe
 ## Conventions
 - **No grid export:** the owner's 6000XP model can't send power to the grid, so the power flow has no right-hand "Grid" node and no solar/battery-to-grid lines (owner's request, 2026-10-10). Grid appears only as a source: home, and the battery when grid charging.
 - **The visual style follows the owner's Voltline app** (see Task 1). Black iOS-style theme by default, plus an iOS-light theme and Automatic.
+- **LCARS theme** (added 2026-11-15, owner's request; Settings → Appearance → LCARS, `data-theme=lcars`): Voyager-era colours
+  (`--lc1`..`--lc7` tokens), a single top elbow plus a fixed left rail (`#lcRail`, its buttons press the page's own buttons), thick
+  elbow card frames, Antonio font from Google Fonts (loaded only for LCARS). Extras, all LCARS-only:
+  - `drawLcars()` replaces the house picture with a line diagram
+  - `lcBridge()`: big Solar/Battery/House readouts placed inside the Power flow card, beside the diagram when the card is 900 px or wider
+  - `lcAlert()`: red at SOC ≤15% or grid V <80, yellow at ≤25%, export, offline or stale; preview with `?alert=red|yellow`
+  - `lcChirp()`: Web Audio click sound, off unless "LCARS button sounds" is ticked
+  - settings rows with end caps, and chart styling
+  Light, Dark and Automatic are unchanged. Phones (≤760 px) drop the rail and use a top band.
   - Tokens: `--bg --card --card2 --ink --dim --dim2 --line`.
   - Series colors: `--solar --pv2 --home --bat --gridIn --gridOut --life`.
   - Accents: `--orange --ok --bad --warn`.
