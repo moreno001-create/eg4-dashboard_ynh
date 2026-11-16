@@ -404,6 +404,23 @@ a.pill{color:var(--ink);text-decoration:none;font-weight:600}
   :root[data-theme=lcars] .lc-flowrow:has(.lc-bridge){grid-template-columns:minmax(220px,290px) minmax(0,1fr);gap:28px;align-items:center}
   :root[data-theme=lcars] .lc-flowrow .lc-bridge{grid-template-columns:1fr;gap:30px;margin:0}
   :root[data-theme=lcars] .lc-flowrow .lc-bridge .n{font-size:clamp(56px,6.5cqi,104px)}}
+/* motion, as on the show: panels sweep in one after another when a page opens, the frame bar runs out, pressed
+   buttons blink, and opened sections and dialogs unroll. LCARS only, and none of it with reduced motion. */
+@keyframes lcSweep{from{clip-path:inset(0 100% 0 0);opacity:.2}60%{opacity:1}to{clip-path:inset(0 0 0 0);opacity:1}}
+@keyframes lcDrop{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes lcBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes lcPress{0%,100%{filter:none}25%,75%{filter:brightness(1.7) saturate(.6)}50%{filter:brightness(.7)}}
+@keyframes lcFlash{from{opacity:.35}to{opacity:1}}
+@keyframes lcOpen{from{clip-path:inset(0 100% 100% 0)}50%{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+@media(prefers-reduced-motion:no-preference){
+  :root[data-theme=lcars] main.lc-enter :is(.card,.titlerow,.lc-bridge,.invtools,.invnav,.chtools,#chGroups h2.sect){animation:lcSweep .5s cubic-bezier(.25,.8,.25,1) both;animation-delay:calc(var(--i,0) * 55ms)}
+  :root[data-theme=lcars] #lcRail.lc-go .lc-elbow::after{transform-origin:left;animation:lcBar .55s cubic-bezier(.3,.8,.3,1) both}
+  :root[data-theme=lcars] #lcRail.lc-go>:not(.lc-elbow){animation:lcSweep .35s ease-out both;animation-delay:calc(var(--i,0) * 40ms)}
+  :root[data-theme=lcars] .lc-press{animation:lcPress .32s steps(4) 1}
+  :root[data-theme=lcars] details[open]>:not(summary){animation:lcDrop .3s ease-out both}
+  :root[data-theme=lcars] dialog[open]{animation:lcOpen .42s cubic-bezier(.3,.8,.3,1) both}
+  :root[data-theme=lcars] .lc-bridge .n{animation:lcFlash .3s ease-out 1}
+  :root[data-theme=lcars] .srow.changed{animation:lcPress .32s steps(4) 1}}
 /* phones: no room for a rail, so the frame becomes one elbow across the top and the normal buttons come back */
 @media(max-width:760px){
   :root[data-theme=lcars] .wrap{padding-left:clamp(16px,2vw,32px)}
@@ -787,6 +804,7 @@ $("#refreshBtn").onclick = () => guard(async () => {
 let theme = ["light", "dark", "lcars"].includes(store("theme")) ? store("theme") : "auto";
 function applyTheme(t){
   if(t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  if(t === "lcars") setTimeout(() => window.lcEnter && lcEnter(), 30);
   if(t === "lcars" && !$("#lcFont")) document.head.append(el("link", {rel:"stylesheet", id:"lcFont", href:"https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&display=swap"}));
   document.querySelectorAll("#themeSeg button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
   drawAll();
@@ -812,6 +830,23 @@ function lcRail(){
   if(br.parentElement !== want){ if(inCard) want.prepend(br); else $(".arrbar").before(br); requestAnimationFrame(() => drawAll()); }
 }
 setInterval(lcRail, 1000); addEventListener("hashchange", () => setTimeout(lcRail));
+/* page entrance: number the panels so they sweep in one after another, and run the frame bar out again */
+function lcEnter(tries = 0){
+  if(document.documentElement.dataset.theme !== "lcars" || REDUCED) return;
+  const m = [...document.querySelectorAll("main")].find(x => !x.classList.contains("hidden"));
+  if(!m){ if(tries < 20) setTimeout(() => lcEnter(tries + 1), 250); return; }   // first load: wait for the page to show
+  let i = 0;
+  m.querySelectorAll(".titlerow, .lc-bridge, .invtools, .invnav, .chtools, .card, #chGroups h2.sect").forEach(c => { if(c.offsetParent) c.style.setProperty("--i", Math.min(i++, 16)); });
+  const rail = $("#lcRail"); rail.querySelectorAll(":scope > :not(.lc-elbow)").forEach((b, k) => b.style.setProperty("--i", k));
+  [m, rail].forEach(x => { x.classList.remove(x === rail ? "lc-go" : "lc-enter"); void x.offsetWidth; x.classList.add(x === rail ? "lc-go" : "lc-enter"); });
+  clearTimeout(window._lce); window._lce = setTimeout(() => { m.classList.remove("lc-enter"); rail.classList.remove("lc-go"); }, 2200);
+}
+addEventListener("hashchange", () => setTimeout(lcEnter, 30));
+document.addEventListener("click", ev => {   // pressed buttons blink
+  const b = ev.target.closest("#lcRail button, #lcRail a, .seg button, .btn, .cta, .invnav a, .lc-bridge > div");
+  if(!b || document.documentElement.dataset.theme !== "lcars") return;
+  b.classList.remove("lc-press"); void b.offsetWidth; b.classList.add("lc-press"); setTimeout(() => b.classList.remove("lc-press"), 400);
+});
 /* bridge readouts, alert level and button chirp (LCARS only) */
 function lcBridge(){
   const L = st && st.live, T = st && st.energy ? st.energy.today || {} : {};

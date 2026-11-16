@@ -368,6 +368,7 @@ An expired session returns HTML or 401, so the client logs in again once. `succe
   - `lcAlert()`: red at SOC ≤15% or grid V <80, yellow at ≤25%, export, offline or stale; preview with `?alert=red|yellow`
   - `lcChirp()`: Web Audio click sound, off unless "LCARS button sounds" is ticked
   - settings rows with end caps, and chart styling
+  - motion (`lcEnter()` + `lc*` keyframes): panels sweep in on page change, frame bar runs out, buttons blink, details/dialogs unroll; off with reduced motion
   Light, Dark and Automatic are unchanged. Phones (≤760 px) drop the rail and use a top band.
   - Tokens: `--bg --card --card2 --ink --dim --dim2 --line`.
   - Series colors: `--solar --pv2 --home --bat --gridIn --gridOut --life`.
